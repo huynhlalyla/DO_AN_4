@@ -15,6 +15,6 @@
 - Chuột phải dô thư mục `server` -> chọn cái nào có `open in terminal` (kiểu vậy)
 - Trong terminal (nếu thấy nằm đúng thư mục server rồi) 
     1. Gõ `npm i` để cài thư viện - nếu cài rồi thì bỏ qua
-    2. Gõ `npm start` để chạy app
+    2. Gõ `npm start` để chạy app (admin và user thì dùng `npm run dev`)
 
 > admin và user dùng cách tương tự để chạy
