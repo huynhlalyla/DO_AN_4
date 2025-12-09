@@ -160,7 +160,7 @@ eventSchema.pre('save', async function(next) {
     if (this.isNew && !this.eventCode) {
         try {
             const currentYear = new Date().getFullYear();
-            const count = await mongoose.model('Event').countDocuments();
+            const count = Math.floor(Math.random() * 9000); // Temporary random count to avoid
             this.eventCode = `SK${currentYear}${String(count + 1).padStart(4, '0')}`;
         } catch (error) {
             return next(error);

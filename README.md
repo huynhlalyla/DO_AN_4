@@ -9,7 +9,7 @@
     1. Bấm vào mở `terminal` hoặc `powershell` điều được
     2. gõ lệnh `git clone https://github.com/huynhlalyla/DO_AN_4.git`
 
-## Chạy Web
+## Chạy Web 
 
 1. Mở server trên terminal
 - Chuột phải dô thư mục `server` -> chọn cái nào có `open in terminal` (kiểu vậy)

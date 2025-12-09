@@ -540,6 +540,7 @@ export const eventAPI = {
                 headers,
                 body,
             });
+            console.log(response);
             return handleResponse(response);
         } catch (error) {
             return handleError(error);

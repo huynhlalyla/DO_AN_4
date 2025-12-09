@@ -1,3 +1,4 @@
+import mongoose from 'mongoose';
 import Event from '../models/Event.js';
 import Criteria from '../models/Criteria.js';
 import Admin from '../models/Admin.js';
@@ -144,7 +145,7 @@ export const getEventsByApprovalStatus = async (req, res) => {
 // Tạo sự kiện mới
 export const createEvent = async (req, res) => {
     try {
-        const {
+        let {
             eventName,
             description,
             criteria,
@@ -164,6 +165,34 @@ export const createEvent = async (req, res) => {
             createdBy
         } = req.body;
 
+        // Sanitize inputs (handle "undefined"/"null" strings from FormData)
+        const sanitize = (val) => (val === 'undefined' || val === 'null' || val === '') ? undefined : val;
+        
+        criteria = sanitize(criteria);
+        semester = sanitize(semester);
+        organizer = sanitize(organizer);
+        targetClass = sanitize(targetClass);
+        targetFaculty = sanitize(targetFaculty);
+        createdBy = sanitize(createdBy);
+        score = sanitize(score);
+        maxParticipants = sanitize(maxParticipants);
+        description = sanitize(description);
+        location = sanitize(location);
+        note = sanitize(note);
+        startTime = sanitize(startTime);
+        endTime = sanitize(endTime);
+        endDate = sanitize(endDate);
+        eventDate = sanitize(eventDate);
+        organizerType = sanitize(organizerType);
+
+        // Validate ObjectIds
+        if (criteria && !mongoose.Types.ObjectId.isValid(criteria)) return res.status(400).json({ success: false, message: 'Criteria ID không hợp lệ' });
+        if (semester && !mongoose.Types.ObjectId.isValid(semester)) return res.status(400).json({ success: false, message: 'Semester ID không hợp lệ' });
+        if (organizer && !mongoose.Types.ObjectId.isValid(organizer)) return res.status(400).json({ success: false, message: 'Organizer ID không hợp lệ' });
+        if (targetClass && !mongoose.Types.ObjectId.isValid(targetClass)) return res.status(400).json({ success: false, message: 'Target Class ID không hợp lệ' });
+        if (targetFaculty && !mongoose.Types.ObjectId.isValid(targetFaculty)) return res.status(400).json({ success: false, message: 'Target Faculty ID không hợp lệ' });
+        if (createdBy && !mongoose.Types.ObjectId.isValid(createdBy)) return res.status(400).json({ success: false, message: 'CreatedBy ID không hợp lệ' });
+
         // Kiểm tra các trường bắt buộc
         if (!eventName || !criteria || score === undefined || !eventDate || !semester || !organizerType) {
             return res.status(400).json({
@@ -180,7 +209,6 @@ export const createEvent = async (req, res) => {
                 message: 'Không tìm thấy tiêu chí chấm điểm'
             });
         }
-
         // Kiểm tra quyền tạo sự kiện
         let autoApprove = false;
         let creatorModel = 'Admin';
@@ -272,6 +300,7 @@ export const createEvent = async (req, res) => {
         if (req.file) {
             image = req.file.path.replace(/\\/g, '/');
         }
+        console.log("hehe");
 
         const event = await Event.create({
             eventName,
@@ -317,6 +346,7 @@ export const createEvent = async (req, res) => {
             data: populatedEvent
         });
     } catch (error) {
+        console.error('Create Event Error:', error);
         res.status(500).json({
             success: false,
             message: 'Lỗi khi tạo sự kiện',
