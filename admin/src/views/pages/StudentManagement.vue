@@ -385,6 +385,18 @@ const handleEdit = (student) => {
     showModal.value = true
 }
 
+const handleClassChange = (classId) => {
+    if (!classId) return
+    const selectedClass = classes.value.find(c => c._id === classId)
+    if (selectedClass && selectedClass.faculty) {
+        // Auto select faculty if not selected or different
+        const facultyId = selectedClass.faculty._id || selectedClass.faculty
+        if (formValue.value.faculty !== facultyId) {
+            formValue.value.faculty = facultyId
+        }
+    }
+}
+
 const handleSubmit = async () => {
     // Validation
     if (!formValue.value.lastName || 
@@ -804,6 +816,7 @@ onMounted(async () => {
                         :options="formClassOptions"
                         placeholder="Chọn lớp"
                         filterable
+                        @update:value="handleClassChange"
                     />
                 </NFormItem>
 
@@ -840,15 +853,15 @@ onMounted(async () => {
                 <p class="mb-2">Chọn Khoa và Lớp cho tất cả sinh viên, sau đó dán dữ liệu JSON vào ô bên dưới.</p>
                 <p>Mỗi sinh viên cần có:</p>
                 <ul class="list-disc ml-6 mt-2">
+                    <li>studentCode (Mã sinh viên)</li>
                     <li>lastName (Họ)</li>
                     <li>firstName (Tên)</li>
-                    <li>gender (Giới tính: Nam/Nữ/Khác)</li>
+                    <li>gender (Giới tính: Nam/Nữ)</li>
                     <li>dateOfBirth (Ngày sinh: dd/mm/yyyy)</li>
-                    <li>email (Tùy chọn - tự động tạo nếu không có)</li>
                 </ul>
                 <p class="mt-2 text-sm text-yellow-600 dark:text-yellow-400">
                     <i class="fa-solid fa-info-circle mr-1"></i>
-                    MSSV sẽ được tạo tự động
+                    Email sẽ được hệ thống tự động tạo, không cần thêm vào JSON.
                 </p>
             </NAlert>
 
@@ -932,12 +945,9 @@ onMounted(async () => {
 </template>
 
 <style scoped>
-:deep(.n-data-table-th) {
-    font-weight: 600;
-    background-color: #f8fafc;
-}
+@reference "../../style.css";
 
-:deep(.dark .n-data-table-th) {
-    background-color: #1e293b;
+:deep(.n-data-table-th) {
+    @apply font-semibold bg-slate-50 dark:bg-slate-800;
 }
 </style>

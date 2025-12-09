@@ -399,11 +399,70 @@ export const getAdminProfile = async (req, res) => {
     }
 };
 
+/**
+ * Đổi mật khẩu
+ */
+export const changePassword = async (req, res) => {
+    try {
+        const { oldPassword, newPassword } = req.body;
+        const userId = req.user.id;
+        const role = req.user.role;
+
+        if (!oldPassword || !newPassword) {
+            return res.status(400).json({
+                success: false,
+                message: 'Vui lòng nhập mật khẩu cũ và mật khẩu mới'
+            });
+        }
+
+        let user = null;
+        if (role === 'Admin') {
+            user = await Admin.findById(userId).select('+password');
+        } else {
+            user = await Student.findById(userId).select('+password');
+        }
+
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: 'Không tìm thấy người dùng'
+            });
+        }
+
+        // Kiểm tra mật khẩu cũ
+        const isMatch = await bcrypt.compare(oldPassword, user.password);
+        if (!isMatch) {
+            return res.status(400).json({
+                success: false,
+                message: 'Mật khẩu cũ không chính xác'
+            });
+        }
+
+        // Hash mật khẩu mới
+        const salt = await bcrypt.genSalt(10);
+        user.password = await bcrypt.hash(newPassword, salt);
+        await user.save();
+
+        res.status(200).json({
+            success: true,
+            message: 'Đổi mật khẩu thành công'
+        });
+
+    } catch (error) {
+        console.error('Error in changePassword:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Lỗi khi đổi mật khẩu'
+        });
+    }
+};
+
 export default {
     checkStudent,
     checkAdminCode,
     requestOTP,
     verifyOTPAndSetPassword,
     login,
-    getAdminProfile
+    getAdminProfile,
+    changePassword
 };

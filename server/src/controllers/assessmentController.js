@@ -203,6 +203,10 @@ export const submitSelfScore = async (req, res) => {
             return res.status(400).json({ message: 'Tiêu chí này được chấm tự động' });
         }
 
+        // Check if student is secretary
+        const student = await Student.findById(studentId);
+        const isSecretary = student && student.isSecretary;
+
         // Update or Create ManualScore
         let manualScore = await ManualScore.findOne({
             student: studentId,
@@ -214,7 +218,14 @@ export const submitSelfScore = async (req, res) => {
         if (manualScore) {
             manualScore.selfScore = selfScore;
             manualScore.evidence = evidence; // Array of { url, fileName }
-            manualScore.approvalStatus = 'pending'; // Reset status on update
+            
+            if (isSecretary) {
+                manualScore.approvalStatus = 'approved';
+                manualScore.approvedScore = selfScore;
+            } else {
+                manualScore.approvalStatus = 'pending'; // Reset status on update
+            }
+            
             manualScore.updatedAt = Date.now();
         } else {
             manualScore = new ManualScore({
@@ -224,7 +235,8 @@ export const submitSelfScore = async (req, res) => {
                 academicYear: semester.academicYear,
                 selfScore,
                 evidence,
-                approvalStatus: 'pending'
+                approvalStatus: isSecretary ? 'approved' : 'pending',
+                approvedScore: isSecretary ? selfScore : 0
             });
         }
 
@@ -513,7 +525,7 @@ export const getStudentScoreSheetForSecretary = async (req, res) => {
 
 export const updateStudentScore = async (req, res) => {
     try {
-        const { studentId, criteriaId, approvedScore, note } = req.body;
+        const { studentId, criteriaId, approvedScore, note, status } = req.body;
         const { semesterId } = req.query; 
 
         let semester;
@@ -543,12 +555,12 @@ export const updateStudentScore = async (req, res) => {
                 academicYear: semester.academicYear,
                 selfScore: 0, 
                 approvedScore: approvedScore,
-                approvalStatus: 'approved',
+                approvalStatus: status || 'approved',
                 description: note
             });
         } else {
             manualScore.approvedScore = approvedScore;
-            manualScore.approvalStatus = 'approved';
+            manualScore.approvalStatus = status || 'approved';
             // if (note) manualScore.description = note; 
         }
 

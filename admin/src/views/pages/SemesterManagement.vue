@@ -93,7 +93,9 @@ const columns = [
                     h(
                         NPopconfirm,
                         {
-                            onPositiveClick: () => handleDelete(row._id)
+                            onPositiveClick: () => handleDelete(row._id),
+                            'positive-text': 'Chấp nhận',
+                            'negative-text': 'Huỷ'
                         },
                         {
                             default: () => 'Bạn có chắc muốn xóa học kỳ này?',

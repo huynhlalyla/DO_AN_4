@@ -261,6 +261,8 @@ const columns = [
                             NPopconfirm,
                             {
                                 onPositiveClick: () => deleteSecretary(row),
+                                'positive-text': 'Chấp nhận',
+                                'negative-text': 'Huỷ'
                             },
                             {
                                 trigger: () => h(

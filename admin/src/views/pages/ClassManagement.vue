@@ -41,8 +41,9 @@ const formValue = ref({
 // Faculty options for select
 const facultyOptions = computed(() => {
     return faculties.value.map(f => ({
-        label: `${f.facultyCode} - ${f.facultyName}`,
-        value: f._id
+        label: `${f.facultyCode} - ${f.facultyName} ${!f.isActive ? '(Vô hiệu)' : ''}`,
+        value: f._id,
+        disabled: !f.isActive
     }))
 })
 
@@ -124,7 +125,9 @@ const columns = [
                     h(
                         NPopconfirm,
                         {
-                            onPositiveClick: () => handleDelete(row._id)
+                            onPositiveClick: () => handleDelete(row._id),
+                            'positive-text': 'Chấp nhận',
+                            'negative-text': 'Huỷ'
                         },
                         {
                             default: () => 'Bạn có chắc muốn xóa lớp này?',
@@ -475,12 +478,9 @@ onMounted(() => {
 </template>
 
 <style scoped>
-:deep(.n-data-table-th) {
-    font-weight: 600;
-    background-color: #f8fafc;
-}
+@reference "../../style.css";
 
-:deep(.dark .n-data-table-th) {
-    background-color: #1e293b;
+:deep(.n-data-table-th) {
+    @apply font-semibold bg-slate-50 dark:bg-slate-800;
 }
 </style>

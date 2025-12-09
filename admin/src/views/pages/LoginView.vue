@@ -20,7 +20,7 @@
 
     <!-- Login Card -->
     <div class="w-full max-w-md animate__animated animate__fadeIn">
-        <n-card class="backdrop-blur-sm shadow-2xl" :bordered="false" size="large">
+        <n-card class="backdrop-blur-sm shadow-2xl" :class="{ 'dark-mode-card': isDark }" :bordered="false" size="large">
             <template #header>
                 <div class="text-center space-y-2">
                     <div class="flex justify-center mb-4">
@@ -536,9 +536,10 @@ const focusConfirmPasswordInput = () => {
 :deep(.n-card) {
   background: rgba(255, 255, 255, 0.95);
   border-radius: 1rem;
+  transition: background-color 0.3s ease, color 0.3s ease;
 }
 
-:deep(.dark .n-card) {
+:deep(.n-card.dark-mode-card) {
   background: rgba(30, 41, 59, 0.95);
 }
 

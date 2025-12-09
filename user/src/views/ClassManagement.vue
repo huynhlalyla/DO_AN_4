@@ -29,17 +29,24 @@
                 <n-tab-pane name="scores" tab="Điểm rèn luyện">
                     <n-card title="Danh sách sinh viên" class="mb-6">
                         <template #header-extra>
-                            <n-select 
-                                v-model:value="selectedSemesterId" 
-                                :options="semesterOptions" 
-                                placeholder="Chọn học kỳ"
-                                style="width: 200px"
-                                @update:value="fetchClassStatus"
-                            />
+                            <n-space>
+                                <n-input v-model:value="searchText" placeholder="Tìm kiếm sinh viên..." clearable>
+                                    <template #prefix>
+                                        <i class="fa-solid fa-search text-gray-400"></i>
+                                    </template>
+                                </n-input>
+                                <n-select 
+                                    v-model:value="selectedSemesterId" 
+                                    :options="semesterOptions" 
+                                    placeholder="Chọn học kỳ"
+                                    style="width: 200px"
+                                    @update:value="fetchClassStatus"
+                                />
+                            </n-space>
                         </template>
                         <n-data-table
                             :columns="studentColumns"
-                            :data="students"
+                            :data="filteredStudents"
                             :loading="loadingStudents"
                             :pagination="{ pageSize: 10 }"
                         />
@@ -131,7 +138,7 @@
                                     <div v-if="crit.evidence && crit.evidence.length > 0" class="mt-2">
                                         <p class="text-sm font-semibold">Minh chứng:</p>
                                         <div class="flex gap-2 mt-1">
-                                            <a v-for="(ev, idx) in crit.evidence" :key="idx" :href="ev.url" target="_blank" class="text-blue-600 hover:underline text-sm">
+                                            <a v-for="(ev, idx) in crit.evidence" :key="idx" :href="`http://localhost:3000${ev.url}`" target="_blank" class="text-blue-600 hover:underline text-sm">
                                                 {{ ev.fileName || 'Xem ảnh' }}
                                             </a>
                                         </div>
@@ -144,6 +151,8 @@
                                     <div class="flex items-center gap-2">
                                         <span class="text-sm text-gray-500">SV tự chấm:</span>
                                         <span class="font-bold">{{ crit.selfScore }}</span>
+                                        <n-tag v-if="crit.scoringType === 'manual' && crit.approvalStatus === 'pending'" type="warning" size="small">Chờ duyệt</n-tag>
+                                        <n-tag v-if="crit.scoringType === 'manual' && crit.approvalStatus === 'rejected'" type="error" size="small">Từ chối</n-tag>
                                     </div>
                                     <div class="flex items-center gap-2">
                                         <span class="text-sm text-gray-500">Duyệt:</span>
@@ -156,6 +165,15 @@
                                             :disabled="crit.scoringType !== 'manual'"
                                             @update:value="() => handleUpdateScore(crit)"
                                         />
+                                        <n-button 
+                                            v-if="crit.scoringType === 'manual'"
+                                            size="small" 
+                                            type="error" 
+                                            ghost 
+                                            @click="handleRejectScore(crit)"
+                                        >
+                                            <template #icon><i class="fa-solid fa-times"></i></template>
+                                        </n-button>
                                     </div>
                                     <n-tag v-if="crit.scoringType !== 'manual'" type="info" size="small">Tự động</n-tag>
                                 </div>
@@ -168,7 +186,7 @@
             <template #footer>
                 <div class="flex justify-end gap-2">
                     <n-button @click="showGradeModal = false">Đóng</n-button>
-                    <n-popconfirm @positive-click="handleFinalize">
+                    <n-popconfirm @positive-click="handleFinalize" positive-text="Chấp nhận" negative-text="Huỷ">
                         <template #trigger>
                             <n-button type="primary">Chốt điểm</n-button>
                         </template>
@@ -204,6 +222,7 @@ const editingId = ref(null);
 // Score Management Refs
 const activeTab = ref('events');
 const students = ref([]);
+const searchText = ref('');
 const loadingStudents = ref(false);
 const showGradeModal = ref(false);
 const currentStudent = ref(null);
@@ -213,6 +232,15 @@ const grandTotal = ref(0);
 
 const criteriaOptions = ref([]);
 const semesterOptions = ref([]);
+
+const filteredStudents = computed(() => {
+    if (!searchText.value) return students.value;
+    const lowerSearch = searchText.value.toLowerCase();
+    return students.value.filter(student => 
+        (student.studentCode && student.studentCode.toLowerCase().includes(lowerSearch)) ||
+        (student.fullName && student.fullName.toLowerCase().includes(lowerSearch))
+    );
+});
 
 const formModel = ref({
     eventName: '',
@@ -291,7 +319,9 @@ const columns = [
             // Cancel button (Only if Active and Upcoming)
             if (row.isActive && isEventUpcoming(row.eventDate) && row.approvalStatus !== 'rejected') {
                 buttons.push(h(NPopconfirm, {
-                    onPositiveClick: () => handleCancel(row)
+                    onPositiveClick: () => handleCancel(row),
+                    'positive-text': 'Chấp nhận',
+                    'negative-text': 'Huỷ'
                 }, {
                     trigger: () => h(NButton, {
                         size: 'small',
@@ -308,7 +338,9 @@ const columns = [
             
             if (isEnded || isCancelled) {
                 buttons.push(h(NPopconfirm, {
-                    onPositiveClick: () => handleDelete(row)
+                    onPositiveClick: () => handleDelete(row),
+                    'positive-text': 'Chấp nhận',
+                    'negative-text': 'Huỷ'
                 }, {
                     trigger: () => h(NButton, {
                         size: 'small',
@@ -406,8 +438,10 @@ const handleUpdateScore = async (crit) => {
             studentId: currentStudent.value._id,
             criteriaId: crit._id,
             approvedScore: crit.approvedScore,
-            note: crit.note
+            note: crit.note,
+            status: 'approved'
         });
+        crit.approvalStatus = 'approved';
         message.success('Đã lưu điểm');
         // Recalculate grand total
         let total = 0;
@@ -422,6 +456,35 @@ const handleUpdateScore = async (crit) => {
         grandTotal.value = total;
     } catch (error) {
         message.error('Lỗi lưu điểm');
+    }
+};
+
+const handleRejectScore = async (crit) => {
+    try {
+        await assessmentAPI.updateStudentScore({
+            studentId: currentStudent.value._id,
+            criteriaId: crit._id,
+            approvedScore: 0,
+            note: crit.note,
+            status: 'rejected'
+        });
+        crit.approvedScore = 0;
+        crit.approvalStatus = 'rejected';
+        message.success('Đã từ chối điểm');
+        
+        // Recalculate grand total
+        let total = 0;
+        scoreSheet.value.forEach(cat => {
+            let catTotal = 0;
+            cat.criteria.forEach(c => {
+                catTotal += (c.approvedScore || 0);
+            });
+            cat.totalScore = Math.min(catTotal, cat.maxScore);
+            total += cat.totalScore;
+        });
+        grandTotal.value = total;
+    } catch (error) {
+        message.error('Lỗi từ chối điểm');
     }
 };
 

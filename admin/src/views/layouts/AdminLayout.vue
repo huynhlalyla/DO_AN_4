@@ -196,8 +196,9 @@ const handleUserDropdown = (key) => {
         localStorage.removeItem('adminCode')
         localStorage.removeItem('userData')
         router.push('/login')
+    } else if (key === 'profile' || key === 'change-password') {
+        router.push('/profile')
     }
-    // TODO: Handle other dropdown actions
 }
 
 // Breadcrumb items
@@ -261,29 +262,6 @@ const breadcrumbItems = computed(() => {
         />
     </NLayoutSider>
 
-    <!-- Mobile Drawer -->
-    <NDrawer 
-        v-model:show="mobileDrawerActive" 
-        :width="280"
-        placement="left"
-        class="lg:hidden"
-    >
-        <NDrawerContent title="Menu" :native-scrollbar="false">
-            <!-- Logo -->
-            <div class="flex items-center gap-2 mb-4 pb-4 border-b border-slate-200 dark:border-slate-700">
-                <img src="/logo.png" alt="Logo" class="h-10 w-10 rounded-full object-cover" />
-                <span class="text-lg font-bold text-slate-800 dark:text-slate-200">Acties Admin</span>
-            </div>
-
-            <!-- Mobile Menu -->
-            <NMenu
-                :options="menuOptions"
-                :value="activeKey"
-                @update:value="handleMenuClick"
-            />
-        </NDrawerContent>
-    </NDrawer>
-
     <!-- Main Layout -->
     <NLayout>
         <!-- Header -->
@@ -291,28 +269,7 @@ const breadcrumbItems = computed(() => {
             <div class="flex items-center justify-between">
                 <!-- Left: Mobile menu + Breadcrumb -->
                 <div class="flex items-center gap-3">
-                    <!-- Mobile Menu Button -->
-                    <NButton 
-                        text 
-                        @click="mobileDrawerActive = true"
-                        class="lg:hidden"
-                    >
-                        <template #icon>
-                            <i class="fa-solid fa-bars text-xl"></i>
-                        </template>
-                    </NButton>
-
-                    <!-- Breadcrumb -->
-                    <NBreadcrumb>
-                        <NBreadcrumbItem 
-                            v-for="item in breadcrumbItems" 
-                            :key="item.path"
-                        >
-                            <router-link :to="item.path" class="hover:text-blue-600">
-                                {{ item.label }}
-                            </router-link>
-                        </NBreadcrumbItem>
-                    </NBreadcrumb>
+                    <!-- Breadcrumb removed as requested -->
                 </div>
 
                 <!-- Right: Dark mode + User -->
@@ -333,21 +290,22 @@ const breadcrumbItems = computed(() => {
                         @select="handleUserDropdown"
                         trigger="click"
                     >
-                        <div class="flex items-center gap-2 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 px-3 py-2 rounded-lg transition-colors">
+                        <div class="flex items-center gap-3 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 px-3 py-2 rounded-full transition-all duration-300 border border-transparent hover:border-slate-200 dark:hover:border-slate-700">
                             <NAvatar
                                 round
-                                size="small"
-                                src="https://07akioni.oss-cn-beijing.aliyuncs.com/07akioni.jpeg"
+                                :size="36"
+                                :src="`https://ui-avatars.com/api/?name=${encodeURIComponent(userInfo.name)}&background=3b82f6&color=fff&bold=true`"
+                                class="shadow-sm ring-2 ring-white dark:ring-slate-700"
                             />
-                            <div class="hidden sm:block">
-                                <div class="text-sm font-semibold text-slate-800 dark:text-slate-200">
+                            <div class="hidden sm:block text-left">
+                                <div class="text-sm font-bold text-slate-700 dark:text-slate-200 leading-tight">
                                     {{ userInfo.name }}
                                 </div>
-                                <div class="text-xs text-slate-500 dark:text-slate-400">
+                                <div class="text-[11px] font-medium text-slate-500 dark:text-slate-400">
                                     {{ userInfo.role }}
                                 </div>
                             </div>
-                            <i class="fa-solid fa-chevron-down text-xs text-slate-400"></i>
+                            <i class="fa-solid fa-chevron-down text-xs text-slate-400 ml-1"></i>
                         </div>
                     </NDropdown>
                 </NSpace>

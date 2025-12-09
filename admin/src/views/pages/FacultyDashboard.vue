@@ -82,12 +82,22 @@
                 </n-descriptions>
             </n-card>
 
-            <!-- Classes Chart -->
-            <n-card title="Biểu đồ Sinh viên theo Lớp" :bordered="false" class="shadow-sm">
-                <div class="h-80">
-                    <canvas ref="chartCanvas"></canvas>
-                </div>
-            </n-card>
+            <!-- Charts Grid -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                <!-- Classes Chart -->
+                <n-card title="Biểu đồ Sinh viên theo Lớp" :bordered="false" class="shadow-sm">
+                    <div class="h-80 relative">
+                        <canvas ref="chartCanvas"></canvas>
+                    </div>
+                </n-card>
+
+                <!-- Status Chart -->
+                <n-card title="Biểu đồ Trạng thái Sinh viên" :bordered="false" class="shadow-sm">
+                    <div class="h-80 relative">
+                        <canvas ref="statusChartCanvas"></canvas>
+                    </div>
+                </n-card>
+            </div>
 
             <!-- Classes Table -->
             <n-card title="Danh sách Lớp" :bordered="false" class="shadow-sm">
@@ -110,7 +120,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed, nextTick } from 'vue';
+import { ref, onMounted, computed, nextTick, watch } from 'vue';
 import { NCard, NDataTable, NDescriptions, NDescriptionsItem, NSpin, NEmpty, useMessage } from 'naive-ui';
 import { facultyAPI, classAPI, studentAPI } from '../../services/api';
 import Chart from 'chart.js/auto';
@@ -124,6 +134,8 @@ const classes = ref([]);
 const students = ref([]);
 const chartCanvas = ref(null);
 let chartInstance = null;
+const statusChartCanvas = ref(null);
+let statusChartInstance = null;
 
 // Get user's faculty from localStorage
 const userData = computed(() => {
@@ -147,6 +159,14 @@ const stats = computed(() => {
         avgStudentsPerClass
     };
 });
+
+// Watch for data changes to re-render charts
+watch([classes, students], async () => {
+    if (facultyData.value) {
+        await nextTick();
+        renderChart();
+    }
+}, { deep: true });
 
 // Table columns
 const classColumns = [
@@ -203,67 +223,93 @@ const loadFacultyData = async () => {
             students.value = studentResult.data;
         }
 
-        // Render chart after data loaded
-        await nextTick();
-        renderChart();
-
     } catch (error) {
         console.error('Error loading faculty data:', error);
         message.error('Lỗi khi tải dữ liệu khoa');
     } finally {
         loading.value = false;
+        // Render chart after loading is done and DOM is updated
+        await nextTick();
+        renderChart();
     }
 };
 
 // Render chart
 const renderChart = () => {
-    if (!chartCanvas.value) return;
+    // Chart 1: Students per Class
+    if (chartCanvas.value) {
+        if (chartInstance) {
+            chartInstance.destroy();
+        }
 
-    // Destroy existing chart
-    if (chartInstance) {
-        chartInstance.destroy();
-    }
+        const classLabels = classes.value.map(c => c.className);
+        const studentCounts = classes.value.map(c => {
+            return students.value.filter(s => s.class?._id === c._id).length;
+        });
 
-    // Prepare data: Count students per class
-    const classLabels = classes.value.map(c => c.className);
-    const studentCounts = classes.value.map(c => {
-        return students.value.filter(s => s.class?._id === c._id).length;
-    });
-
-    const ctx = chartCanvas.value.getContext('2d');
-    chartInstance = new Chart(ctx, {
-        type: 'bar',
-        data: {
-            labels: classLabels,
-            datasets: [{
-                label: 'Số sinh viên',
-                data: studentCounts,
-                backgroundColor: 'rgba(59, 130, 246, 0.5)',
-                borderColor: 'rgba(59, 130, 246, 1)',
-                borderWidth: 1
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: {
-                    display: false
-                },
-                title: {
-                    display: false
-                }
+        const ctx = chartCanvas.value.getContext('2d');
+        chartInstance = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: classLabels,
+                datasets: [{
+                    label: 'Số sinh viên',
+                    data: studentCounts,
+                    backgroundColor: 'rgba(59, 130, 246, 0.5)',
+                    borderColor: 'rgba(59, 130, 246, 1)',
+                    borderWidth: 1
+                }]
             },
-            scales: {
-                y: {
-                    beginAtZero: true,
-                    ticks: {
-                        stepSize: 1
-                    }
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    title: { display: false }
+                },
+                scales: {
+                    y: { beginAtZero: true, ticks: { stepSize: 1 } }
                 }
             }
+        });
+    }
+
+    // Chart 2: Student Status
+    if (statusChartCanvas.value) {
+        if (statusChartInstance) {
+            statusChartInstance.destroy();
         }
-    });
+
+        const activeCount = students.value.filter(s => s.isActive).length;
+        const inactiveCount = students.value.length - activeCount;
+
+        const ctxStatus = statusChartCanvas.value.getContext('2d');
+        statusChartInstance = new Chart(ctxStatus, {
+            type: 'doughnut',
+            data: {
+                labels: ['Đang hoạt động', 'Ngừng hoạt động'],
+                datasets: [{
+                    data: [activeCount, inactiveCount],
+                    backgroundColor: [
+                        'rgba(34, 197, 94, 0.6)', // Green
+                        'rgba(239, 68, 68, 0.6)'  // Red
+                    ],
+                    borderColor: [
+                        'rgba(34, 197, 94, 1)',
+                        'rgba(239, 68, 68, 1)'
+                    ],
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: 'bottom' }
+                }
+            }
+        });
+    }
 };
 
 onMounted(() => {

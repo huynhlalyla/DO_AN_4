@@ -167,7 +167,9 @@ const categoryColumns = [
                     h(
                         NPopconfirm,
                         {
-                            onPositiveClick: () => handleDeleteCategory(row._id)
+                            onPositiveClick: () => handleDeleteCategory(row._id),
+                            'positive-text': 'Chấp nhận',
+                            'negative-text': 'Huỷ'
                         },
                         {
                             default: () => 'Xóa đề mục này sẽ xóa tất cả tiêu chí bên trong. Bạn chắc chắn?',
@@ -289,7 +291,9 @@ const criteriaColumns = [
                     h(
                         NPopconfirm,
                         {
-                            onPositiveClick: () => handleDeleteCriteria(row._id)
+                            onPositiveClick: () => handleDeleteCriteria(row._id),
+                            'positive-text': 'Chấp nhận',
+                            'negative-text': 'Huỷ'
                         },
                         {
                             default: () => 'Bạn có chắc muốn xóa tiêu chí này?',
@@ -519,7 +523,7 @@ onMounted(() => {
                     Cấu hình Bảng điểm Rèn luyện
                 </h2>
                 <p class="text-sm text-slate-600 dark:text-slate-400">
-                    Quản lý đề mục và tiêu chí chấm điểm, xem template bảng điểm
+                    Quản lý đề mục và tiêu chí chấm điểm, xem bảng điểm mẫu
                 </p>
             </div>
             <div class="flex gap-2">
@@ -632,10 +636,10 @@ onMounted(() => {
             </NTabPane>
 
             <!-- Preview Tab -->
-            <NTabPane name="preview" tab="Xem Bảng điểm Template">
+            <NTabPane name="preview" tab="Xem Bảng điểm mẫu">
                 <NSpace vertical :size="16">
                     <NAlert type="info" title="Bảng điểm mẫu">
-                        Đây là template bảng điểm rèn luyện dựa trên cấu hình hiện tại. 
+                        Đây là bảng điểm rèn luyện mẫu dựa trên cấu hình hiện tại. 
                         Bảng này sẽ được sử dụng để chấm điểm cho sinh viên.
                     </NAlert>
 

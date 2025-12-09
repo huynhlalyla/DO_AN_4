@@ -47,6 +47,8 @@ export const authAPI = {
     
     login: (email, password) => axiosInstance.post('/auth/login', { email, password }),
     
+    changePassword: (data) => axiosInstance.post('/auth/change-password', data),
+
     // Request OTP for first-time login or password reset
     requestOTP: (email, purpose = 'first-login') => 
         axiosInstance.post('/auth/request-otp', { email, purpose }),
@@ -139,9 +141,9 @@ export const eventAPI = {
 
 // Student API
 export const studentAPI = {
-    getProfile: () => axiosInstance.get('/students/profile'),
+    getById: (id) => axiosInstance.get(`/students/${id}`),
     
-    updateProfile: (data) => axiosInstance.put('/students/profile', data),
+    update: (id, data) => axiosInstance.put(`/students/${id}`, data),
     
     getMyScores: () => axiosInstance.get('/students/my-scores'),
     

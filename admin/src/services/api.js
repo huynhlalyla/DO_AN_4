@@ -767,6 +767,20 @@ export const authAPI = {
             return handleError(error);
         }
     },
+
+    // Đổi mật khẩu
+    changePassword: async (data) => {
+        try {
+            const response = await fetch(`${API_BASE_URL}/auth/change-password`, {
+                method: 'POST',
+                headers: getHeaders(),
+                body: JSON.stringify(data),
+            });
+            return handleResponse(response);
+        } catch (error) {
+            return handleError(error);
+        }
+    },
 };
 
 // ============ ADMIN APIs ============

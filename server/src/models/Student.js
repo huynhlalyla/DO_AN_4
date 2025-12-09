@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import { generateEmail } from '../utils/helpers.js';
 
 const studentSchema = new mongoose.Schema({
     studentCode: {
@@ -24,7 +25,6 @@ const studentSchema = new mongoose.Schema({
     },
     email: {
         type: String,
-        required: [true, 'Email là bắt buộc'],
         unique: true,
         lowercase: true,
         trim: true,
@@ -88,11 +88,19 @@ studentSchema.set('toObject', { virtuals: true });
 
 // Auto-generate studentCode (format: year + 5 digits, VD: 2024000001)
 studentSchema.pre('save', async function(next) {
-    if (this.isNew && !this.studentCode) {
+    if (this.isNew) {
         try {
-            const currentYear = new Date().getFullYear();
-            const count = await mongoose.model('Student').countDocuments();
-            this.studentCode = `${currentYear}${String(count + 1).padStart(5, '0')}`;
+            // Generate studentCode if missing
+            if (!this.studentCode) {
+                const currentYear = new Date().getFullYear();
+                const count = await mongoose.model('Student').countDocuments();
+                this.studentCode = `${currentYear}${String(count + 1).padStart(5, '0')}`;
+            }
+
+            // Generate email if missing
+            if (!this.email) {
+                this.email = generateEmail(this.lastName, this.firstName, this.studentCode);
+            }
         } catch (error) {
             return next(error);
         }

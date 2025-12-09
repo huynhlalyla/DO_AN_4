@@ -126,7 +126,7 @@ const quickActions = [
         title: 'Tạo sự kiện mới',
         icon: 'fa-plus',
         color: 'primary',
-        path: '/events/create',
+        path: '/events',
         desc: 'Thêm sự kiện mới vào hệ thống'
     },
     {
@@ -135,20 +135,6 @@ const quickActions = [
         color: 'info',
         path: '/students',
         desc: 'Xem và quản lý danh sách sinh viên'
-    },
-    {
-        title: 'Xem báo cáo',
-        icon: 'fa-chart-pie',
-        color: 'success',
-        path: '/reports',
-        desc: 'Thống kê và báo cáo hoạt động'
-    },
-    {
-        title: 'Cài đặt hệ thống',
-        icon: 'fa-gear',
-        color: 'warning',
-        path: '/settings',
-        desc: 'Cấu hình hệ thống và tài khoản'
     }
 ]
 
@@ -244,7 +230,7 @@ onMounted(() => {
         <NGrid :x-gap="16" :y-gap="16" cols="1 s:2 m:4" responsive="screen">
             <NGi v-for="action in quickActions" :key="action.title">
                 <div 
-                    class="group cursor-pointer p-4 rounded-xl border border-slate-200 dark:border-slate-700 hover:border-blue-500 dark:hover:border-blue-500 hover:shadow-md transition-all duration-300 bg-white dark:bg-slate-800"
+                    class="h-full group cursor-pointer p-4 rounded-xl border border-slate-200 dark:border-slate-700 hover:border-blue-500 dark:hover:border-blue-500 hover:shadow-md transition-all duration-300 bg-white dark:bg-slate-800"
                     @click="$router.push(action.path)"
                 >
                     <div class="flex items-center gap-4">
@@ -298,10 +284,10 @@ onMounted(() => {
                         class="space-y-2"
                     >
                         <div class="flex justify-between items-center text-sm">
-                            <span class="font-medium text-slate-700 dark:text-slate-300">
+                            <span class="w-9/12 font-medium text-slate-700 dark:text-slate-300">
                                 {{ category.name }}
                             </span>
-                            <span class="text-slate-500 dark:text-slate-400">
+                            <span class="w-3/12text-slate-500 dark:text-slate-400">
                                 {{ category.percentage }}%
                             </span>
                         </div>

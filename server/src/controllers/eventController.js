@@ -708,7 +708,10 @@ export const getEventsForStudent = async (req, res) => {
         }
 
         const events = await Event.find(query)
-            .populate('criteria')
+            .populate({
+                path: 'criteria',
+                populate: { path: 'category' }
+            })
             .populate('organizer')
             .populate('targetClass')
             .populate('targetFaculty')
@@ -887,7 +890,11 @@ export const getMyEvents = async (req, res) => {
                 path: 'event',
                 populate: [
                     { path: 'organizer' },
-                    { path: 'semester' }
+                    { path: 'semester' },
+                    { 
+                        path: 'criteria',
+                        populate: { path: 'category' }
+                    }
                 ]
             })
             .sort({ createdAt: -1 });

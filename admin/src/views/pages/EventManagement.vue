@@ -166,9 +166,9 @@ const organizerTypeOptions = computed(() => {
 
 const criteriaOptions = computed(() => {
     return criteria.value.map(c => ({
-        label: `[+${c.maxScorePerTime}đ] ${c.content}`,
+        label: `[+${c.plusScore}đ] ${c.content}`,
         value: c._id,
-        maxScore: c.maxScorePerTime
+        maxScore: c.plusScore
     }))
 })
 
@@ -405,7 +405,9 @@ const columns = [
                     row.approvalStatus === 'approved' && row.isActive && h(
                         NPopconfirm,
                         {
-                            onPositiveClick: () => handleCancel(row)
+                            onPositiveClick: () => handleCancel(row),
+                            'positive-text': 'Chấp nhận',
+                            'negative-text': 'Huỷ'
                         },
                         {
                             default: () => 'Bạn có chắc muốn hủy sự kiện này? Email thông báo sẽ được gửi đến sinh viên.',
@@ -423,7 +425,9 @@ const columns = [
                     h(
                         NPopconfirm,
                         {
-                            onPositiveClick: () => handleDelete(row._id)
+                            onPositiveClick: () => handleDelete(row._id),
+                            'positive-text': 'Chấp nhận',
+                            'negative-text': 'Huỷ'
                         },
                         {
                             default: () => 'Bạn có chắc muốn xóa sự kiện này?',
@@ -649,7 +653,7 @@ const handleSubmit = async () => {
     // Validate các trường cơ bản
     if (!formValue.value.eventName ||
         !formValue.value.criteria || !formValue.value.score ||
-        !formValue.value.eventDate || !formValue.value.semester) {
+        !formValue.value.eventDate || !formValue.value.endDate || !formValue.value.semester) {
         message.error('Vui lòng nhập đầy đủ thông tin bắt buộc')
         return
     }
@@ -862,6 +866,13 @@ const handleFilterChange = () => {
     currentPage.value = 1
 }
 
+// Auto-fill endDate when eventDate is selected
+watch(() => formValue.value.eventDate, (newVal) => {
+    if (newVal && !formValue.value.endDate) {
+        formValue.value.endDate = newVal
+    }
+})
+
 // Load data
 onMounted(async () => {
     // Refresh admin data để đảm bảo có thông tin khoa mới nhất
@@ -1072,7 +1083,7 @@ onMounted(async () => {
                     />
                 </NFormItem>
 
-                <NFormItem label="Ngày kết thúc" path="endDate">
+                <NFormItem label="Ngày kết thúc" path="endDate" required>
                     <NDatePicker
                         v-model:value="formValue.endDate"
                         type="date"
@@ -1334,12 +1345,9 @@ onMounted(async () => {
 </template>
 
 <style scoped>
-:deep(.n-data-table-th) {
-    font-weight: 600;
-    background-color: #f8fafc;
-}
+@reference "../../style.css";
 
-:deep(.dark .n-data-table-th) {
-    background-color: #1e293b;
+:deep(.n-data-table-th) {
+    @apply font-semibold bg-slate-50 dark:bg-slate-800;
 }
 </style>

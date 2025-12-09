@@ -34,5 +34,7 @@ export const isEventUpcoming = (startDate) => {
 export const isEventEnded = (endDate) => {
     const now = new Date();
     const end = new Date(endDate);
+    // Set end time to end of day (23:59:59) to include the end date
+    end.setHours(23, 59, 59, 999);
     return now > end;
 };

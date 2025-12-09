@@ -19,7 +19,7 @@
                                 v-if="p.event.image" 
                                 :src="`http://localhost:3000/${p.event.image}`" 
                                 class="w-full h-full object-cover transition-transform duration-300 hover:scale-110"
-                                alt="Event Thumbnail"
+                                alt="Hình ảnh sự kiện"
                             />
                             <div v-else class="w-full h-full flex items-center justify-center text-gray-300">
                                 <i class="fa-solid fa-image text-3xl"></i>
@@ -59,6 +59,8 @@
                                     v-if="canCancel(p.event) && p.status === 'registered'"
                                     @positive-click.stop="handleCancelRegistration(p.event._id)"
                                     @click.stop
+                                    positive-text="Chấp nhận"
+                                    negative-text="Huỷ"
                                 >
                                     <template #trigger>
                                         <n-button size="tiny" type="error" ghost @click.stop>
@@ -92,7 +94,7 @@
                             v-if="selectedEvent.image" 
                             :src="`http://localhost:3000/${selectedEvent.image}`" 
                             class="w-full h-full object-cover"
-                            alt="Event Image"
+                            alt="Hình ảnh sự kiện"
                         />
                         <div v-else class="w-full h-full flex items-center justify-center text-gray-300">
                             <i class="fa-solid fa-image text-5xl"></i>
@@ -298,7 +300,7 @@ const fetchMyEvents = async () => {
     loading.value = true;
     try {
         const response = await eventAPI.getRegisteredEvents(userData._id);
-        participations.value = response.data || [];
+        participations.value = (response.data || []).filter(p => p.event);
     } catch (error) {
         message.error('Lỗi tải dữ liệu: ' + error.message);
     } finally {

@@ -1,5 +1,5 @@
 <template>
-    <div class="p-4 md:p-6 max-w-7xl mx-auto">
+    <div class="p-4 md:p-6 max-w-full mx-auto">
         <!-- Header -->
         <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
             <div>
@@ -96,8 +96,9 @@
 
                             <!-- Note Cell -->
                             <td class="text-sm text-slate-500">
-                                <div v-if="crit.note" :class="{'text-red-500': crit.note.includes('từ chối')}">
-                                    {{ crit.note }}
+                                <div v-if="crit.note" :class="{'text-red-500': crit.note.includes('rejected')}">
+                                    {{ handleNote(crit.note) }}
+                                      <!-- haha -->
                                 </div>
                                 <div v-if="crit.evidence && crit.evidence.length > 0" class="mt-1">
                                     <n-popover trigger="hover">
@@ -126,7 +127,9 @@
                         <tr class="bg-slate-100 dark:bg-slate-800 font-bold border-t border-slate-200 dark:border-slate-700">
                             <td colspan="2" class="text-right pr-4">Tổng điểm {{ category.categoryName }}:</td>
                             <td class="text-center">{{ category.maxScore }}</td>
-                            <td></td>
+                            <td class="text-center text-slate-700 dark:text-slate-300">
+                                {{ calculateCategorySelfScore(category) }}
+                            </td>
                             <td class="text-center text-blue-700 dark:text-blue-300 text-lg">
                                 {{ category.totalScore }}
                             </td>
@@ -137,7 +140,8 @@
                 <!-- Grand Total -->
                 <tfoot>
                     <tr class="bg-blue-600 text-white font-bold text-lg">
-                        <td colspan="4" class="text-right pr-4 py-4">TỔNG ĐIỂM RÈN LUYỆN:</td>
+                        <td colspan="3" class="text-right pr-4 py-4">TỔNG ĐIỂM RÈN LUYỆN:</td>
+                        <td class="text-center py-4">{{ totalSelfScore }}</td>
                         <td class="text-center py-4">{{ grandTotal }}</td>
                         <td></td>
                     </tr>
@@ -229,6 +233,18 @@ const daysRemaining = computed(() => {
     const now = new Date();
     const diff = deadline - now;
     return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
+});
+
+const calculateCategorySelfScore = (category) => {
+    if (!category || !Array.isArray(category.criteria)) return 0;
+    return category.criteria.reduce((sum, crit) => sum + (Number(crit.selfScore) || 0), 0);
+};
+
+const totalSelfScore = computed(() => {
+    if (!Array.isArray(scoreSheet.value)) return 0;
+    return scoreSheet.value.reduce((total, category) => {
+        return total + calculateCategorySelfScore(category);
+    }, 0);
 });
 
 const toRoman = (num) => {
@@ -323,6 +339,16 @@ const submitScore = async () => {
         submitting.value = false;
     }
 };
+
+const handleNote = (note) => {
+    if (note.includes('rejected')) {
+        return 'Từ chối';
+    } else if (note.includes('approved')) {
+        return 'Được duyệt';
+    } else {
+        return "Đợi duyệt"
+    }
+}
 
 onMounted(() => {
     fetchData();

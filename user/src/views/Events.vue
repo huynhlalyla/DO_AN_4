@@ -342,7 +342,9 @@ const fetchEvents = async () => {
         // Fetch registered events to check status
         if (userData._id) {
             const regResponse = await eventAPI.getRegisteredEvents(userData._id);
-            registeredEventIds.value = (regResponse.data || []).map(p => p.event._id || p.event);
+            registeredEventIds.value = (regResponse.data || [])
+                .filter(p => p.event)
+                .map(p => p.event._id || p.event);
         }
     } catch (error) {
         message.error('Lỗi tải dữ liệu: ' + error.message);
@@ -438,13 +440,16 @@ const getScopeTagType = (scope) => {
 };
 
 const getEventStatus = (event) => {
-    if (isEventEnded(event.eventDate)) return 'Đã kết thúc';
+    // Use endDate for checking if ended, fallback to eventDate if endDate is missing
+    const endDate = event.endDate || event.eventDate;
+    if (isEventEnded(endDate)) return 'Đã kết thúc';
     if (isEventUpcoming(event.eventDate)) return 'Sắp diễn ra';
     return 'Đang diễn ra';
 };
 
 const getStatusTagType = (event) => {
-    if (isEventEnded(event.eventDate)) return 'default';
+    const endDate = event.endDate || event.eventDate;
+    if (isEventEnded(endDate)) return 'default';
     if (isEventUpcoming(event.eventDate)) return 'warning';
     return 'success';
 };
@@ -454,7 +459,19 @@ const isRegistered = (eventId) => registeredEventIds.value.includes(eventId);
 const canRegister = (event) => {
     if (!event) return false;
     if (isRegistered(event._id)) return false;
-    if (isEventEnded(event.eventDate)) return false;
+    
+    // Check if event has started (registration closes when event starts)
+    const now = new Date();
+    const startDate = new Date(event.eventDate);
+    
+    if (event.startTime) {
+        const [hours, minutes] = event.startTime.split(':');
+        startDate.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+    } else {
+        startDate.setHours(0, 0, 0, 0);
+    }
+
+    if (now >= startDate) return false;
     
     // Check scope eligibility
     if (event.scope === 'faculty') {

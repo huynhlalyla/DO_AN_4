@@ -48,7 +48,7 @@ const columns = [
         width: 120,
         render: (row) => h(
             NTag,
-            { type: 'info', size: 'small' },
+            { type: row.isActive ? 'info' : 'error', size: 'small' },
             { default: () => row.facultyCode }
         )
     },
@@ -66,6 +66,16 @@ const columns = [
         }
     },
     {
+        title: 'Trạng thái',
+        key: 'isActive',
+        width: 120,
+        render: (row) => h(
+            NTag,
+            { type: row.isActive ? 'success' : 'error', bordered: false },
+            { default: () => row.isActive ? 'Hoạt động' : 'Vô hiệu' }
+        )
+    },
+    {
         title: 'Ngày tạo',
         key: 'createdAt',
         width: 160,
@@ -76,44 +86,64 @@ const columns = [
         key: 'actions',
         width: 180,
         fixed: 'right',
-        render: (row) => h(
-            NSpace,
-            { size: 8 },
-            {
-                default: () => [
-                    h(
-                        NButton,
-                        {
-                            size: 'small',
-                            type: 'primary',
-                            ghost: true,
-                            onClick: () => handleEdit(row)
-                        },
-                        { default: () => 'Sửa' }
-                    ),
-                    h(
-                        NPopconfirm,
-                        {
-                            onPositiveClick: () => handleDelete(row._id)
-                        },
-                        {
-                            default: () => 'Bạn có chắc muốn xóa khoa này?',
-                            trigger: () => h(
-                                NButton,
-                                {
-                                    size: 'small',
-                                    type: 'error',
-                                    ghost: true
-                                },
-                                { default: () => 'Xóa' }
-                            )
-                        }
-                    )
-                ]
+        render: (row) => {
+            if (!row.isActive) {
+                return h(
+                    NButton,
+                    {
+                        size: 'small',
+                        type: 'success',
+                        ghost: true,
+                        onClick: () => handleActivate(row._id)
+                    },
+                    { default: () => 'Khôi phục' }
+                )
             }
-        )
+            return h(
+                NSpace,
+                { size: 8 },
+                {
+                    default: () => [
+                        h(
+                            NButton,
+                            {
+                                size: 'small',
+                                type: 'primary',
+                                ghost: true,
+                                onClick: () => handleEdit(row)
+                            },
+                            { default: () => 'Sửa' }
+                        ),
+                        h(
+                            NPopconfirm,
+                            {
+                                onPositiveClick: () => handleDelete(row._id),
+                                'positive-text': 'Chấp nhận',
+                                'negative-text': 'Huỷ'
+                            },
+                            {
+                                default: () => 'Bạn có chắc muốn xóa khoa này?',
+                                trigger: () => h(
+                                    NButton,
+                                    {
+                                        size: 'small',
+                                        type: 'error',
+                                        ghost: true
+                                    },
+                                    { default: () => 'Xóa' }
+                                )
+                            }
+                        )
+                    ]
+                }
+            )
+        }
     }
 ]
+
+const rowClassName = (row) => {
+    return row.isActive ? '' : 'disabled-row'
+}
 
 // Fetch faculties
 const fetchFaculties = async () => {
@@ -194,6 +224,17 @@ const handleDelete = async (id) => {
     }
 }
 
+// Activate faculty
+const handleActivate = async (id) => {
+    try {
+        await facultyAPI.update(id, { isActive: true })
+        message.success('Khôi phục khoa thành công')
+        fetchFaculties()
+    } catch (error) {
+        message.error('Lỗi khi khôi phục: ' + error.message)
+    }
+}
+
 // Load data on mount
 onMounted(() => {
     fetchFaculties()
@@ -233,6 +274,7 @@ onMounted(() => {
                 :single-line="false"
                 striped
                 size="small"
+                :row-class-name="rowClassName"
             />
         </NSpin>
     </NCard>
@@ -293,12 +335,23 @@ onMounted(() => {
 </template>
 
 <style scoped>
+@reference "../../style.css";
+
 :deep(.n-data-table-th) {
-    font-weight: 600;
-    background-color: #f8fafc;
+    @apply font-semibold bg-slate-50 dark:bg-slate-800;
 }
 
-:deep(.dark .n-data-table-th) {
-    background-color: #1e293b;
+:deep(.disabled-row td) {
+    background-color: rgba(255, 0, 0, 0.05) !important;
+    color: #999;
+}
+
+:deep(.disabled-row td:first-child) {
+    border-left: 3px solid #ff4d4f;
+}
+
+:deep(.dark .disabled-row td) {
+    background-color: rgba(255, 0, 0, 0.1) !important;
+    color: #aaa;
 }
 </style>

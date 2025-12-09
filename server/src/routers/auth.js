@@ -1,5 +1,6 @@
 import express from 'express';
-import { checkStudent, checkAdminCode, requestOTP, verifyOTPAndSetPassword, login, getAdminProfile } from '../controllers/authController.js';
+import { checkStudent, checkAdminCode, requestOTP, verifyOTPAndSetPassword, login, getAdminProfile, changePassword } from '../controllers/authController.js';
+import { verifyToken } from '../middlewares/auth.js';
 
 const router = express.Router();
 
@@ -20,5 +21,8 @@ router.post('/login', login);
 
 // GET /api/auth/admin/:id - Lấy thông tin admin profile
 router.get('/admin/:id', getAdminProfile);
+
+// POST /api/auth/change-password - Đổi mật khẩu
+router.post('/change-password', verifyToken, changePassword);
 
 export default router;

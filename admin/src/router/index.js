@@ -18,6 +18,7 @@ import AttendanceCheck from '../views/pages/AttendanceCheck.vue'
 // import UserManagement from '../views/pages/UserManagement.vue' // DEPRECATED
 import AdminManagement from '../views/pages/AdminManagement.vue'
 import SecretaryManagement from '../views/pages/SecretaryManagement.vue'
+import AdminProfile from '../views/pages/AdminProfile.vue'
 
 // Auth guard helper
 const isAuthenticated = () => {
@@ -50,6 +51,11 @@ const routes = [
         path: '',
         name: 'AdminDashboard',
         component: AdminDashboard
+      },
+      {
+        path: 'profile',
+        name: 'AdminProfile',
+        component: AdminProfile
       },
       // Data Management
       {

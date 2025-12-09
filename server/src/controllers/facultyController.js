@@ -5,7 +5,7 @@ import Faculty from '../models/Faculty.js';
 // @access  Public
 const getAllFaculties = async (req, res, next) => {
     try {
-        const faculties = await Faculty.find({ isActive: true })
+        const faculties = await Faculty.find({})
             .sort({ facultyName: 1 });
 
         res.status(200).json({

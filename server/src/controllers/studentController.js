@@ -110,7 +110,7 @@ const createStudent = async (req, res, next) => {
         } = req.body;
 
         // Kiểm tra thông tin bắt buộc
-        if (!lastName || !firstName || !gender || !email || !dateOfBirth || !classId || !facultyId) {
+        if (!lastName || !firstName || !gender || !dateOfBirth || !classId || !facultyId) {
             return res.status(400).json({
                 success: false,
                 message: 'Vui lòng nhập đầy đủ thông tin'
