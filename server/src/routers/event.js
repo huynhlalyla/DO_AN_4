@@ -16,7 +16,13 @@ import {
     deleteEvent,
     registerEvent,
     unregisterEvent,
-    cancelEvent
+    cancelEvent,
+    loginAttendance,
+    getAttendanceList,
+    markAttendance,
+    exportAttendance,
+    importAttendance,
+    getEventAttendanceInfo
 } from '../controllers/eventController.js';
 
 const router = express.Router();
@@ -29,15 +35,21 @@ router.get('/for-student', getEventsForStudent);
 router.get('/semester/:semesterId', getEventsBySemester);
 router.get('/status/:status', getEventsByApprovalStatus);
 router.get('/:id/participants', getEventParticipants);
+router.get('/:id/attendance-info', getEventAttendanceInfo); // New
+router.get('/:id/attendance-list', getAttendanceList); // New
+router.get('/:id/export-attendance', exportAttendance); // New
 router.get('/:id', getEventById);
 
 // POST routes
 router.post('/', upload.single('image'), createEvent);
+router.post('/attendance-login', loginAttendance); // New
 router.post('/:id/register', registerEvent);
 router.post('/:id/unregister', unregisterEvent);
 router.post('/:id/cancel', cancelEvent);
 router.post('/:id/approve', approveEvent);
 router.post('/:id/reject', rejectEvent);
+router.post('/:id/mark-attendance', markAttendance); // New
+router.post('/:id/import-attendance', upload.single('file'), importAttendance); // New
 
 // PUT routes
 router.put('/:id', upload.single('image'), updateEvent);

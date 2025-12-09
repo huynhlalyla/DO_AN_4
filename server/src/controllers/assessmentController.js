@@ -103,13 +103,15 @@ export const getStudentScoreSheet = async (req, res) => {
                         if (!p.event || !p.event.criteria || p.event.criteria.toString() !== crit._id.toString()) return false;
                         
                         // Check if eligible for score
+                        // New Logic: Only count if status is 'attended'
                         if (p.status === 'attended') return true;
-                        if (p.status === 'registered') {
-                            // Check if event ended
-                            const now = new Date();
-                            const eventDate = new Date(p.event.eventDate);
-                            return eventDate < now;
-                        }
+                        
+                        // Old Logic (Removed):
+                        // if (p.status === 'registered') {
+                        //     const now = new Date();
+                        //     const eventDate = new Date(p.event.eventDate);
+                        //     return eventDate < now;
+                        // }
                         return false;
                     });
                     

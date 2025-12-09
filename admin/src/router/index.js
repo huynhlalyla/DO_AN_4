@@ -14,6 +14,7 @@ import StudentManagement from '../views/pages/StudentManagement.vue'
 import EventManagement from '../views/pages/EventManagement.vue'
 import SemesterManagement from '../views/pages/SemesterManagement.vue'
 import AssessmentConfig from '../views/pages/AssessmentConfig.vue'
+import AttendanceCheck from '../views/pages/AttendanceCheck.vue'
 // import UserManagement from '../views/pages/UserManagement.vue' // DEPRECATED
 import AdminManagement from '../views/pages/AdminManagement.vue'
 import SecretaryManagement from '../views/pages/SecretaryManagement.vue'
@@ -30,6 +31,13 @@ const routes = [
     name: 'Login',
     component: LoginView,
     meta: { requiresGuest: true }
+  },
+
+  // Attendance Routes (Public/Standalone)
+  {
+    path: '/attendance/:id',
+    name: 'AttendanceCheck',
+    component: AttendanceCheck
   },
 
   // Admin Routes (Protected) - Root is now admin dashboard

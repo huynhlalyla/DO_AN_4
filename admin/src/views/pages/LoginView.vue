@@ -31,184 +31,223 @@
                         />
                     </div>
                     <h1 class="text-2xl sm:text-3xl font-bold text-slate-800 dark:text-slate-100">
-                        Đăng nhập Quản trị
+                        Hệ thống quản lý sự kiện
                     </h1>
                     <p class="text-sm text-slate-600 dark:text-slate-400">
-                        Hệ thống quản lý sự kiện - Acties
+                        Acties
                     </p>
                 </div>
             </template>
 
-            <n-space vertical :size="20">
-                <!-- Error/Success Alert -->
-                <n-alert v-if="alertMessage" :type="alertType" closable @close="alertMessage = ''">
-                    {{ alertMessage }}
-                </n-alert>
+            <n-tabs type="segment" animated v-model:value="activeTab">
+                <n-tab-pane name="admin" tab="Quản trị viên">
+                    <n-space vertical :size="20" class="mt-4">
+                        <!-- Error/Success Alert -->
+                        <n-alert v-if="alertMessage && activeTab === 'admin'" :type="alertType" closable @close="alertMessage = ''">
+                            {{ alertMessage }}
+                        </n-alert>
 
-                <!-- Step 1: Nhập mã cán bộ -->
-                <div v-if="step === 1">
-                    <n-form ref="step1FormRef" :model="formData" size="large">
-                        <n-form-item 
-                            label="Mã số cán bộ (MSCB)" 
-                            path="adminCode"
-                            :show-require-mark="false"
-                        >
-                            <n-input
-                                v-model:value="formData.adminCode"
-                                placeholder="Nhập mã số cán bộ (VD: CB20240001)"
-                                :disabled="loading"
-                                @keypress.enter="handleCheckAdmin"
-                            >
-                                <template #prefix>
-                                    <i class="fa-solid fa-id-card text-slate-400"></i>
-                                </template>
-                            </n-input>
-                        </n-form-item>
+                        <!-- Step 1: Nhập mã cán bộ -->
+                        <div v-if="step === 1">
+                            <n-form ref="step1FormRef" :model="formData" size="large">
+                                <n-form-item 
+                                    label="Mã số cán bộ (MSCB)" 
+                                    path="adminCode"
+                                    :show-require-mark="false"
+                                >
+                                    <n-input
+                                        v-model:value="formData.adminCode"
+                                        placeholder="Nhập mã số cán bộ (VD: CB20240001)"
+                                        :disabled="loading"
+                                        @keypress.enter="handleCheckAdmin"
+                                    >
+                                        <template #prefix>
+                                            <i class="fa-solid fa-id-card text-slate-400"></i>
+                                        </template>
+                                    </n-input>
+                                </n-form-item>
 
-                        <n-form-item :show-label="false">
-                            <n-button
-                                type="primary"
-                                block
-                                size="large"
-                                :loading="loading"
-                                @click="handleCheckAdmin"
-                                class="font-semibold"
-                            >
-                                {{ loading ? 'Đang kiểm tra...' : 'Tiếp tục' }}
+                                <n-form-item :show-label="false">
+                                    <n-button
+                                        type="primary"
+                                        block
+                                        size="large"
+                                        :loading="loading"
+                                        @click="handleCheckAdmin"
+                                        class="font-semibold"
+                                    >
+                                        {{ loading ? 'Đang kiểm tra...' : 'Tiếp tục' }}
+                                    </n-button>
+                                </n-form-item>
+                            </n-form>
+                        </div>
+
+                        <!-- Step 2A: Lần đầu đăng nhập - Nhập OTP -->
+                        <div v-else-if="step === 2 && isFirstLogin">
+                            <div class="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                                <p class="text-sm text-blue-800 dark:text-blue-200">
+                                    <i class="fa-solid fa-info-circle mr-2"></i>
+                                    Đây là lần đầu bạn đăng nhập. Mã OTP đã được gửi đến email: <strong>{{ adminEmail }}</strong>
+                                </p>
+                            </div>
+
+                            <n-form ref="otpFormRef" :model="formData" size="large">
+                                <n-form-item label="Mã OTP (6 chữ số)" :show-require-mark="false">
+                                    <n-input
+                                        v-model:value="formData.otpCode"
+                                        placeholder="Nhập mã OTP"
+                                        maxlength="6"
+                                        :disabled="loading"
+                                        @keypress.enter="focusPasswordInput"
+                                    >
+                                        <template #prefix>
+                                            <i class="fa-solid fa-key text-slate-400"></i>
+                                        </template>
+                                    </n-input>
+                                </n-form-item>
+
+                                <n-form-item label="Mật khẩu mới" :show-require-mark="false">
+                                    <n-input
+                                        ref="passwordInputRef"
+                                        v-model:value="formData.newPassword"
+                                        type="password"
+                                        show-password-on="click"
+                                        placeholder="Tối thiểu 6 ký tự"
+                                        :disabled="loading"
+                                        @keypress.enter="focusConfirmPasswordInput"
+                                    >
+                                        <template #prefix>
+                                            <i class="fa-solid fa-lock text-slate-400"></i>
+                                        </template>
+                                    </n-input>
+                                </n-form-item>
+
+                                <n-form-item label="Xác nhận mật khẩu" :show-require-mark="false">
+                                    <n-input
+                                        ref="confirmPasswordInputRef"
+                                        v-model:value="formData.confirmPassword"
+                                        type="password"
+                                        show-password-on="click"
+                                        placeholder="Nhập lại mật khẩu"
+                                        :disabled="loading"
+                                        @keypress.enter="handleVerifyOTP"
+                                    >
+                                        <template #prefix>
+                                            <i class="fa-solid fa-lock text-slate-400"></i>
+                                        </template>
+                                    </n-input>
+                                </n-form-item>
+
+                                <n-space vertical :size="12">
+                                    <n-button
+                                        type="primary"
+                                        block
+                                        size="large"
+                                        :loading="loading"
+                                        @click="handleVerifyOTP"
+                                        class="font-semibold"
+                                    >
+                                        {{ loading ? 'Đang xác thực...' : 'Xác nhận và đăng nhập' }}
+                                    </n-button>
+
+                                    <n-button
+                                        text
+                                        block
+                                        size="small"
+                                        :disabled="loading || resendCooldown > 0"
+                                        @click="handleResendOTP"
+                                    >
+                                        {{ resendCooldown > 0 ? `Gửi lại OTP (${resendCooldown}s)` : 'Gửi lại mã OTP' }}
+                                    </n-button>
+                                </n-space>
+                            </n-form>
+
+                            <n-button text block class="mt-3" @click="resetToStep1">
+                                <i class="fa-solid fa-arrow-left mr-2"></i>Quay lại
                             </n-button>
-                        </n-form-item>
-                    </n-form>
-                </div>
+                        </div>
 
-                <!-- Step 2A: Lần đầu đăng nhập - Nhập OTP -->
-                <div v-else-if="step === 2 && isFirstLogin">
-                    <div class="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-                        <p class="text-sm text-blue-800 dark:text-blue-200">
-                            <i class="fa-solid fa-info-circle mr-2"></i>
-                            Đây là lần đầu bạn đăng nhập. Mã OTP đã được gửi đến email: <strong>{{ adminEmail }}</strong>
-                        </p>
-                    </div>
+                        <!-- Step 2B: Đăng nhập bình thường -->
+                        <div v-else-if="step === 2 && !isFirstLogin">
+                            <div class="mb-4 p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
+                                <p class="text-sm text-green-800 dark:text-green-200">
+                                    <i class="fa-solid fa-user-circle mr-2"></i>
+                                    Xin chào, <strong>{{ adminFullName }}</strong>
+                                </p>
+                            </div>
 
-                    <n-form ref="otpFormRef" :model="formData" size="large">
-                        <n-form-item label="Mã OTP (6 chữ số)" :show-require-mark="false">
-                            <n-input
-                                v-model:value="formData.otpCode"
-                                placeholder="Nhập mã OTP"
-                                maxlength="6"
-                                :disabled="loading"
-                                @keypress.enter="focusPasswordInput"
-                            >
-                                <template #prefix>
-                                    <i class="fa-solid fa-key text-slate-400"></i>
-                                </template>
-                            </n-input>
-                        </n-form-item>
+                            <n-form ref="loginFormRef" :model="formData" size="large">
+                                <n-form-item label="Mật khẩu" :show-require-mark="false">
+                                    <n-input
+                                        v-model:value="formData.password"
+                                        type="password"
+                                        show-password-on="click"
+                                        placeholder="Nhập mật khẩu"
+                                        :disabled="loading"
+                                        @keypress.enter="handleLogin"
+                                    >
+                                        <template #prefix>
+                                            <i class="fa-solid fa-lock text-slate-400"></i>
+                                        </template>
+                                    </n-input>
+                                </n-form-item>
 
-                        <n-form-item label="Mật khẩu mới" :show-require-mark="false">
-                            <n-input
-                                ref="passwordInputRef"
-                                v-model:value="formData.newPassword"
-                                type="password"
-                                show-password-on="click"
-                                placeholder="Tối thiểu 6 ký tự"
-                                :disabled="loading"
-                                @keypress.enter="focusConfirmPasswordInput"
-                            >
-                                <template #prefix>
-                                    <i class="fa-solid fa-lock text-slate-400"></i>
-                                </template>
-                            </n-input>
-                        </n-form-item>
+                                <n-form-item :show-label="false">
+                                    <n-button
+                                        type="primary"
+                                        block
+                                        size="large"
+                                        :loading="loading"
+                                        @click="handleLogin"
+                                        class="font-semibold"
+                                    >
+                                        {{ loading ? 'Đang đăng nhập...' : 'Đăng nhập' }}
+                                    </n-button>
+                                </n-form-item>
+                            </n-form>
 
-                        <n-form-item label="Xác nhận mật khẩu" :show-require-mark="false">
-                            <n-input
-                                ref="confirmPasswordInputRef"
-                                v-model:value="formData.confirmPassword"
-                                type="password"
-                                show-password-on="click"
-                                placeholder="Nhập lại mật khẩu"
-                                :disabled="loading"
-                                @keypress.enter="handleVerifyOTP"
-                            >
-                                <template #prefix>
-                                    <i class="fa-solid fa-lock text-slate-400"></i>
-                                </template>
-                            </n-input>
-                        </n-form-item>
-
-                        <n-space vertical :size="12">
-                            <n-button
-                                type="primary"
-                                block
-                                size="large"
-                                :loading="loading"
-                                @click="handleVerifyOTP"
-                                class="font-semibold"
-                            >
-                                {{ loading ? 'Đang xác thực...' : 'Xác nhận và đăng nhập' }}
+                            <n-button text block class="mt-3" @click="resetToStep1">
+                                <i class="fa-solid fa-arrow-left mr-2"></i>Quay lại
                             </n-button>
+                        </div>
+                    </n-space>
+                </n-tab-pane>
 
-                            <n-button
-                                text
-                                block
-                                size="small"
-                                :disabled="loading || resendCooldown > 0"
-                                @click="handleResendOTP"
-                            >
-                                {{ resendCooldown > 0 ? `Gửi lại OTP (${resendCooldown}s)` : 'Gửi lại mã OTP' }}
-                            </n-button>
-                        </n-space>
-                    </n-form>
+                <n-tab-pane name="collaborator" tab="Cộng tác viên">
+                    <n-space vertical :size="20" class="mt-4">
+                        <n-alert v-if="alertMessage && activeTab === 'collaborator'" :type="alertType" closable @close="alertMessage = ''">
+                            {{ alertMessage }}
+                        </n-alert>
 
-                    <n-button text block class="mt-3" @click="resetToStep1">
-                        <i class="fa-solid fa-arrow-left mr-2"></i>Quay lại
-                    </n-button>
-                </div>
-
-                <!-- Step 2B: Đăng nhập bình thường -->
-                <div v-else-if="step === 2 && !isFirstLogin">
-                    <div class="mb-4 p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
-                        <p class="text-sm text-green-800 dark:text-green-200">
-                            <i class="fa-solid fa-user-circle mr-2"></i>
-                            Xin chào, <strong>{{ adminFullName }}</strong>
-                        </p>
-                    </div>
-
-                    <n-form ref="loginFormRef" :model="formData" size="large">
-                        <n-form-item label="Mật khẩu" :show-require-mark="false">
-                            <n-input
-                                v-model:value="formData.password"
-                                type="password"
-                                show-password-on="click"
-                                placeholder="Nhập mật khẩu"
-                                :disabled="loading"
-                                @keypress.enter="handleLogin"
-                            >
-                                <template #prefix>
-                                    <i class="fa-solid fa-lock text-slate-400"></i>
-                                </template>
-                            </n-input>
-                        </n-form-item>
-
-                        <n-form-item :show-label="false">
-                            <n-button
-                                type="primary"
-                                block
-                                size="large"
-                                :loading="loading"
-                                @click="handleLogin"
-                                class="font-semibold"
-                            >
-                                {{ loading ? 'Đang đăng nhập...' : 'Đăng nhập' }}
-                            </n-button>
-                        </n-form-item>
-                    </n-form>
-
-                    <n-button text block class="mt-3" @click="resetToStep1">
-                        <i class="fa-solid fa-arrow-left mr-2"></i>Quay lại
-                    </n-button>
-                </div>
-            </n-space>
+                        <n-form ref="collabFormRef" :model="collabData" size="large">
+                            <n-form-item label="Mã sự kiện" path="eventCode" :show-require-mark="false">
+                                <n-input v-model:value="collabData.eventCode" placeholder="Nhập mã sự kiện (VD: EVT001)">
+                                    <template #prefix>
+                                        <i class="fa-solid fa-calendar-check text-slate-400"></i>
+                                    </template>
+                                </n-input>
+                            </n-form-item>
+                            <n-form-item label="Mật khẩu điểm danh" path="password" :show-require-mark="false">
+                                <n-input
+                                    v-model:value="collabData.password"
+                                    type="password"
+                                    show-password-on="click"
+                                    placeholder="Nhập mật khẩu 6 số"
+                                >
+                                    <template #prefix>
+                                        <i class="fa-solid fa-key text-slate-400"></i>
+                                    </template>
+                                </n-input>
+                            </n-form-item>
+                            <n-form-item :show-label="false">
+                                <n-button type="primary" block size="large" :loading="loading" @click="handleCollabLogin">
+                                    Vào điểm danh
+                                </n-button>
+                            </n-form-item>
+                        </n-form>
+                    </n-space>
+                </n-tab-pane>
+            </n-tabs>
 
             <template #footer>
                 <div class="text-center text-xs text-slate-400 dark:text-slate-500">
@@ -223,9 +262,9 @@
 <script setup>
 import { ref, computed } from 'vue';
 import { useRouter } from 'vue-router';
-import { NForm, NFormItem, NInput, NButton, NCard, NSpace, NSwitch, NAlert, useMessage } from 'naive-ui';
+import { NForm, NFormItem, NInput, NButton, NCard, NSpace, NSwitch, NAlert, useMessage, NTabs, NTabPane, NAvatar } from 'naive-ui';
 import { isDark } from '../../hooks/useDark';
-import { authAPI } from '../../services/api';
+import { authAPI, eventAPI } from '../../services/api';
 
 const router = useRouter();
 const message = useMessage();
@@ -236,6 +275,7 @@ const darkGradient = 'linear-gradient(135deg, #1e3a8a 0%, #312e81 100%)';
 const currentGradient = computed(() => isDark.value ? darkGradient : lightGradient);
 
 // State
+const activeTab = ref('admin');
 const step = ref(1); // 1: nhập MSCB, 2: OTP hoặc password
 const isFirstLogin = ref(false);
 const loading = ref(false);
@@ -256,9 +296,42 @@ const formData = ref({
     password: '',
 });
 
+// Collaborator Form Data
+const collabData = ref({
+    eventCode: '',
+    password: ''
+});
+
 // Refs
 const passwordInputRef = ref(null);
 const confirmPasswordInputRef = ref(null);
+
+// Collaborator Login Handler
+const handleCollabLogin = async () => {
+    if (!collabData.value.eventCode || !collabData.value.password) {
+        showAlert('error', 'Vui lòng nhập đầy đủ thông tin');
+        return;
+    }
+
+    loading.value = true;
+    try {
+        const result = await eventAPI.loginAttendance(collabData.value.eventCode, collabData.value.password);
+        if (result.success) {
+            message.success('Đăng nhập thành công');
+            router.push({ 
+                name: 'AttendanceCheck', 
+                params: { id: result.data.eventId },
+                query: { eventName: result.data.eventName }
+            });
+        } else {
+            showAlert('error', result.message || 'Đăng nhập thất bại');
+        }
+    } catch (error) {
+        showAlert('error', 'Lỗi: ' + error.message);
+    } finally {
+        loading.value = false;
+    }
+};
 
 // Step 1: Kiểm tra mã cán bộ
 const handleCheckAdmin = async () => {

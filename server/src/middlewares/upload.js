@@ -19,9 +19,9 @@ const storage = multer.diskStorage({
 });
 
 const fileFilter = (req, file, cb) => {
-    // Accept images only
-    if (!file.originalname.match(/\.(jpg|jpeg|png|gif)$/)) {
-        return cb(new Error('Chỉ chấp nhận file ảnh!'), false);
+    // Accept images and excel files
+    if (!file.originalname.match(/\.(jpg|jpeg|png|gif|xlsx|xls)$/)) {
+        return cb(new Error('Chỉ chấp nhận file ảnh hoặc Excel!'), false);
     }
     cb(null, true);
 };

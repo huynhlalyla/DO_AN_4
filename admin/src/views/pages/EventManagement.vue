@@ -94,6 +94,7 @@ const showStatsModal = ref(false)
 const eventParticipants = ref([])
 const statsLoading = ref(false)
 const selectedEventForStats = ref(null)
+const attendancePassword = ref('') // New
 
 // Filters
 const filterStatus = ref(null)
@@ -632,19 +633,7 @@ const handleEdit = (event) => {
     showModal.value = true
 }
 
-const handleViewStats = async (event) => {
-    selectedEventForStats.value = event
-    showStatsModal.value = true
-    statsLoading.value = true
-    try {
-        const response = await eventAPI.getParticipants(event._id)
-        eventParticipants.value = response.data || []
-    } catch (error) {
-        message.error('Lỗi tải danh sách tham gia: ' + error.message)
-    } finally {
-        statsLoading.value = false
-    }
-}
+
 
 const handleCancel = async (event) => {
     try {
@@ -776,6 +765,63 @@ const handleDelete = async (id) => {
         fetchEvents()
     } catch (error) {
         message.error('Lỗi khi xóa: ' + error.message)
+    }
+}
+
+const handleViewStats = async (event) => {
+    selectedEventForStats.value = event
+    showStatsModal.value = true
+    statsLoading.value = true
+    attendancePassword.value = '' // Reset password
+
+    try {
+        // Fetch participants
+        const result = await eventAPI.getParticipants(event._id)
+        if (result.success) {
+            eventParticipants.value = result.data
+        }
+        
+        // Fetch attendance password
+        const passResult = await eventAPI.getAttendanceInfo(event._id)
+        if (passResult.success) {
+            attendancePassword.value = passResult.data.attendancePassword
+        }
+    } catch (error) {
+        message.error('Lỗi khi tải thông tin thống kê')
+    } finally {
+        statsLoading.value = false
+    }
+}
+
+const handleExportAttendance = async (eventId) => {
+    try {
+        const blob = await eventAPI.exportAttendance(eventId)
+        const url = window.URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = `DanhSach_ThamGia_${selectedEventForStats.value.eventCode}.xlsx`
+        document.body.appendChild(a)
+        a.click()
+        window.URL.revokeObjectURL(url)
+        document.body.removeChild(a)
+        message.success('Tải xuống thành công')
+    } catch (error) {
+        message.error('Lỗi khi tải xuống file Excel')
+    }
+}
+
+const handleImportAttendance = async (eventId, { file }) => {
+    try {
+        const result = await eventAPI.importAttendance(eventId, file.file)
+        if (result.success) {
+            message.success(result.message)
+            // Refresh list
+            handleViewStats(selectedEventForStats.value)
+        } else {
+            message.error(result.message || 'Lỗi khi nhập file Excel')
+        }
+    } catch (error) {
+        message.error('Lỗi khi nhập file Excel')
     }
 }
 
@@ -1234,7 +1280,35 @@ onMounted(async () => {
                 </NCard>
             </div>
 
-            <h3 class="font-bold mb-3">Danh sách sinh viên tham gia</h3>
+            <div class="flex justify-between items-center mb-3">
+                <h3 class="font-bold">Danh sách sinh viên tham gia</h3>
+                <div class="flex gap-2">
+                    <NButton size="small" type="primary" @click="handleExportAttendance(selectedEventForStats._id)">
+                        <template #icon><i class="fa-solid fa-download"></i></template>
+                        Xuất Excel
+                    </NButton>
+                    <NUpload
+                        :show-file-list="false"
+                        @change="(options) => handleImportAttendance(selectedEventForStats._id, options)"
+                        accept=".xlsx, .xls"
+                    >
+                        <NButton size="small" type="info">
+                            <template #icon><i class="fa-solid fa-upload"></i></template>
+                            Nhập Excel
+                        </NButton>
+                    </NUpload>
+                </div>
+            </div>
+            
+            <div v-if="attendancePassword" class="mb-4 p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded border border-yellow-200 dark:border-yellow-800">
+                <div class="flex items-center gap-2">
+                    <i class="fa-solid fa-key text-yellow-600"></i>
+                    <span class="font-bold text-yellow-800 dark:text-yellow-200">Mật khẩu điểm danh:</span>
+                    <span class="font-mono text-lg bg-white dark:bg-black px-2 py-0.5 rounded border">{{ attendancePassword }}</span>
+                </div>
+                <div class="text-xs text-gray-500 mt-1">Cung cấp mật khẩu này cho người phụ trách điểm danh.</div>
+            </div>
+
             <NDataTable
                 :columns="[
                     { title: 'STT', key: 'index', width: 60, render: (_, index) => index + 1 },
@@ -1242,7 +1316,11 @@ onMounted(async () => {
                     { title: 'Họ tên', key: 'student.fullName', render: (row) => `${row.student?.lastName} ${row.student?.firstName}` },
                     { title: 'Lớp', key: 'student.class.classCode' },
                     { title: 'Khoa', key: 'student.faculty.facultyCode' },
-                    { title: 'Ngày đăng ký', key: 'createdAt', render: (row) => new Date(row.createdAt).toLocaleDateString('vi-VN') }
+                    { title: 'Điểm danh', key: 'status', align: 'center', render: (row) => {
+                        if (row.status === 'attended') return h(NTag, { type: 'success', size: 'small' }, { default: () => 'Đã tham gia' })
+                        return h(NTag, { type: 'error', size: 'small' }, { default: () => 'Chưa tham gia' })
+                    }},
+                    { title: 'Thời gian', key: 'attendedAt', render: (row) => row.attendedAt ? new Date(row.attendedAt).toLocaleString('vi-VN') : '-' }
                 ]"
                 :data="eventParticipants"
                 :loading="statsLoading"

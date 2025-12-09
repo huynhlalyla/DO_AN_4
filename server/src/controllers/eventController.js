@@ -1,4 +1,6 @@
 import mongoose from 'mongoose';
+import ExcelJS from 'exceljs';
+import fs from 'fs';
 import Event from '../models/Event.js';
 import Criteria from '../models/Criteria.js';
 import Admin from '../models/Admin.js';
@@ -917,5 +919,293 @@ export const getEventParticipants = async (req, res) => {
         });
     } catch (error) {
         res.status(500).json({ success: false, message: 'Lỗi lấy danh sách người tham gia', error: error.message });
+    }
+};
+
+// ==========================================
+// ATTENDANCE FEATURES
+// ==========================================
+
+// Get Attendance Info (Password) - Should be protected
+export const getEventAttendanceInfo = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const event = await Event.findById(id).select('+attendancePassword');
+        
+        if (!event) {
+            return res.status(404).json({ success: false, message: 'Sự kiện không tồn tại' });
+        }
+
+        // Generate password if missing (for old events)
+        if (!event.attendancePassword) {
+            event.attendancePassword = Math.floor(100000 + Math.random() * 900000).toString();
+            await event.save();
+        }
+
+        res.status(200).json({
+            success: true,
+            data: {
+                attendancePassword: event.attendancePassword
+            }
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, message: 'Lỗi lấy thông tin điểm danh', error: error.message });
+    }
+};
+
+// Login for Attendance
+export const loginAttendance = async (req, res) => {
+    try {
+        const { eventCode, password } = req.body;
+
+        const event = await Event.findOne({ eventCode }).select('+attendancePassword');
+        if (!event) {
+            return res.status(404).json({ success: false, message: 'Sự kiện không tồn tại' });
+        }
+
+        if (event.attendancePassword !== password) {
+            return res.status(401).json({ success: false, message: 'Mật khẩu điểm danh không đúng' });
+        }
+
+        res.status(200).json({
+            success: true,
+            message: 'Đăng nhập thành công',
+            data: {
+                eventId: event._id,
+                eventName: event.eventName,
+                eventCode: event.eventCode
+            }
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, message: 'Lỗi đăng nhập điểm danh', error: error.message });
+    }
+};
+
+// Get Attendance List (for Attendance Taker)
+export const getAttendanceList = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { search } = req.query;
+
+        // If search is provided, we need to filter by student name or code
+        const participations = await EventParticipation.find({ event: id, status: { $in: ['registered', 'attended'] } })
+            .populate('student', 'studentCode lastName firstName class faculty')
+            .sort({ 'student.lastName': 1, 'student.firstName': 1 });
+
+        let filtered = participations;
+        if (search) {
+            const searchLower = search.toLowerCase();
+            filtered = participations.filter(p => 
+                p.student.studentCode.toLowerCase().includes(searchLower) ||
+                `${p.student.lastName} ${p.student.firstName}`.toLowerCase().includes(searchLower)
+            );
+        }
+
+        res.status(200).json({
+            success: true,
+            count: filtered.length,
+            data: filtered
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, message: 'Lỗi lấy danh sách điểm danh', error: error.message });
+    }
+};
+
+// Mark Attendance (Toggle)
+export const markAttendance = async (req, res) => {
+    try {
+        const { id } = req.params; // Event ID
+        const { studentId, status } = req.body; // status: 'attended' or 'registered' (uncheck)
+
+        // Check event date
+        const event = await Event.findById(id);
+        if (!event) {
+            return res.status(404).json({ success: false, message: 'Sự kiện không tồn tại' });
+        }
+
+        const now = new Date();
+        const eventDate = new Date(event.eventDate);
+        // Reset time part for comparison if needed, but usually exact time matters if startTime is included
+        // Assuming eventDate includes time or is just date. 
+        // If strict: now < eventDate means event hasn't started.
+        if (now < eventDate) {
+            return res.status(400).json({ 
+                success: false, 
+                message: 'Chưa đến thời gian diễn ra sự kiện. Không thể điểm danh.' 
+            });
+        }
+
+        const participation = await EventParticipation.findOne({ event: id, student: studentId });
+        if (!participation) {
+            return res.status(404).json({ success: false, message: 'Sinh viên chưa đăng ký sự kiện này' });
+        }
+
+        participation.status = status;
+        if (status === 'attended') {
+            participation.attendedAt = new Date();
+        } else {
+            participation.attendedAt = undefined;
+        }
+
+        await participation.save();
+
+        res.status(200).json({
+            success: true,
+            message: 'Cập nhật điểm danh thành công',
+            data: participation
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, message: 'Lỗi cập nhật điểm danh', error: error.message });
+    }
+};
+
+// Export Attendance Excel
+export const exportAttendance = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const event = await Event.findById(id);
+        if (!event) return res.status(404).json({ success: false, message: 'Sự kiện không tồn tại' });
+
+        const participations = await EventParticipation.find({ event: id, status: { $in: ['registered', 'attended'] } })
+            .populate('student', 'studentCode lastName firstName email class faculty')
+            .populate({ path: 'student', populate: { path: 'class faculty', select: 'classCode facultyName' } });
+
+        const workbook = new ExcelJS.Workbook();
+        const worksheet = workbook.addWorksheet('Danh sách tham gia');
+
+        worksheet.columns = [
+            { header: 'STT', key: 'stt', width: 5 },
+            { header: 'MSSV', key: 'studentCode', width: 15 },
+            { header: 'Họ đệm', key: 'lastName', width: 20 },
+            { header: 'Tên', key: 'firstName', width: 15 },
+            { header: 'Lớp', key: 'class', width: 15 },
+            { header: 'Khoa', key: 'faculty', width: 25 },
+            { header: 'Email', key: 'email', width: 30 },
+            { header: 'Điểm danh (x)', key: 'status', width: 15 },
+            { header: 'Thời gian điểm danh', key: 'attendedAt', width: 20 }
+        ];
+
+        // Add Data Validation for Status column (Column H / 8)
+        // Note: ExcelJS uses 1-based indexing for columns
+        const statusCol = worksheet.getColumn(8);
+        statusCol.eachCell((cell, rowNumber) => {
+            if (rowNumber > 1) {
+                cell.dataValidation = {
+                    type: 'list',
+                    allowBlank: true,
+                    formulae: ['"x"'],
+                    showErrorMessage: true,
+                    errorStyle: 'warning',
+                    errorTitle: 'Giá trị không hợp lệ',
+                    error: 'Vui lòng chọn "x" hoặc để trống'
+                };
+            }
+        });
+
+        participations.forEach((p, index) => {
+            worksheet.addRow({
+                stt: index + 1,
+                studentCode: p.student.studentCode,
+                lastName: p.student.lastName,
+                firstName: p.student.firstName,
+                class: p.student.class?.classCode,
+                faculty: p.student.faculty?.facultyName,
+                email: p.student.email,
+                status: p.status === 'attended' ? 'x' : '',
+                attendedAt: p.attendedAt ? p.attendedAt.toLocaleString('vi-VN') : ''
+            });
+        });
+
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.setHeader('Content-Disposition', `attachment; filename=DanhSach_ThamGia_${event.eventCode}.xlsx`);
+
+        await workbook.xlsx.write(res);
+        res.end();
+    } catch (error) {
+        res.status(500).json({ success: false, message: 'Lỗi xuất file Excel', error: error.message });
+    }
+};
+
+// Import Attendance Excel
+export const importAttendance = async (req, res) => {
+    try {
+        const { id } = req.params;
+        if (!req.file) return res.status(400).json({ success: false, message: 'Vui lòng tải lên file Excel' });
+
+        // Check event date
+        const event = await Event.findById(id);
+        if (!event) {
+            fs.unlinkSync(req.file.path);
+            return res.status(404).json({ success: false, message: 'Sự kiện không tồn tại' });
+        }
+
+        const now = new Date();
+        const eventDate = new Date(event.eventDate);
+        if (now < eventDate) {
+            fs.unlinkSync(req.file.path);
+            return res.status(400).json({ 
+                success: false, 
+                message: 'Chưa đến thời gian diễn ra sự kiện. Không thể nhập điểm danh.' 
+            });
+        }
+
+        const workbook = new ExcelJS.Workbook();
+        await workbook.xlsx.readFile(req.file.path);
+        const worksheet = workbook.getWorksheet(1);
+
+        const updates = [];
+        const errors = [];
+
+        worksheet.eachRow((row, rowNumber) => {
+            if (rowNumber === 1) return; // Skip header
+
+            const studentCode = row.getCell(2).value; // Assuming MSSV is column 2
+            const statusText = row.getCell(8).value; // Assuming Status is column 8
+
+            if (studentCode) {
+                updates.push({ studentCode: studentCode.toString(), statusText });
+            }
+        });
+
+        let successCount = 0;
+        for (const update of updates) {
+            const student = await Student.findOne({ studentCode: update.studentCode });
+            if (student) {
+                const participation = await EventParticipation.findOne({ event: id, student: student._id });
+                if (participation) {
+                    // Check for various "attended" indicators
+                    const val = update.statusText;
+                    const isAttended = val === 'x' || val === 'X' || val === 'có' || val === 'Có' || val === true || val === 1 || val === 'Đã tham gia';
+                    
+                    if (isAttended) {
+                        participation.status = 'attended';
+                        if (!participation.attendedAt) {
+                            participation.attendedAt = new Date();
+                        }
+                    } else {
+                        // If unchecked/empty, revert to registered? 
+                        // User said: "chưa check = không tham gia". 
+                        // So if it was attended but now empty, should we un-attend?
+                        // Usually yes for full sync.
+                        participation.status = 'registered';
+                        participation.attendedAt = undefined;
+                    }
+                    await participation.save();
+                    if (isAttended) successCount++;
+                }
+            }
+        }
+        
+        // Clean up uploaded file
+        fs.unlinkSync(req.file.path);
+
+        res.status(200).json({
+            success: true,
+            message: `Đã điểm danh thành công cho ${successCount} sinh viên`,
+            errors
+        });
+
+    } catch (error) {
+        res.status(500).json({ success: false, message: 'Lỗi nhập file Excel', error: error.message });
     }
 };

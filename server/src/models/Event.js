@@ -150,6 +150,11 @@ const eventSchema = new mongoose.Schema({
     isActive: {
         type: Boolean,
         default: true
+    },
+    // Mật khẩu điểm danh
+    attendancePassword: {
+        type: String,
+        select: false // Không trả về khi query thường
     }
 }, {
     timestamps: true
@@ -160,8 +165,14 @@ eventSchema.pre('save', async function(next) {
     if (this.isNew && !this.eventCode) {
         try {
             const currentYear = new Date().getFullYear();
+            // const count = await mongoose.model('Event').countDocuments();
             const count = Math.floor(Math.random() * 9000); // Temporary random count to avoid
             this.eventCode = `SK${currentYear}${String(count + 1).padStart(4, '0')}`;
+            
+            // Generate random 6-digit password for attendance
+            if (!this.attendancePassword) {
+                this.attendancePassword = Math.floor(100000 + Math.random() * 900000).toString();
+            }
         } catch (error) {
             return next(error);
         }

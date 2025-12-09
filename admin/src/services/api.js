@@ -601,6 +601,76 @@ export const eventAPI = {
         }
     },
 
+    // Attendance APIs
+    loginAttendance: async (eventCode, password) => {
+        try {
+            const response = await fetch(`${API_BASE_URL}/events/attendance-login`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ eventCode, password })
+            });
+            return handleResponse(response);
+        } catch (error) {
+            return handleError(error);
+        }
+    },
+
+    getAttendanceList: async (id, search = '') => {
+        try {
+            const response = await fetch(`${API_BASE_URL}/events/${id}/attendance-list?search=${search}`);
+            return handleResponse(response);
+        } catch (error) {
+            return handleError(error);
+        }
+    },
+
+    markAttendance: async (id, studentId, status) => {
+        try {
+            const response = await fetch(`${API_BASE_URL}/events/${id}/mark-attendance`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ studentId, status })
+            });
+            return handleResponse(response);
+        } catch (error) {
+            return handleError(error);
+        }
+    },
+
+    getAttendanceInfo: async (id) => {
+        try {
+            const response = await fetch(`${API_BASE_URL}/events/${id}/attendance-info`);
+            return handleResponse(response);
+        } catch (error) {
+            return handleError(error);
+        }
+    },
+
+    exportAttendance: async (id) => {
+        try {
+            const response = await fetch(`${API_BASE_URL}/events/${id}/export-attendance`);
+            if (!response.ok) throw new Error('Download failed');
+            return response.blob();
+        } catch (error) {
+            return handleError(error);
+        }
+    },
+
+    importAttendance: async (id, file) => {
+        try {
+            const formData = new FormData();
+            formData.append('file', file);
+            
+            const response = await fetch(`${API_BASE_URL}/events/${id}/import-attendance`, {
+                method: 'POST',
+                body: formData
+            });
+            return handleResponse(response);
+        } catch (error) {
+            return handleError(error);
+        }
+    },
+
     cancel: async (id, reason) => {
         try {
             const response = await fetch(`${API_BASE_URL}/events/${id}/cancel`, {
