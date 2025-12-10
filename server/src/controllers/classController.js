@@ -1,12 +1,24 @@
 import Class from '../models/Class.js';
 import Faculty from '../models/Faculty.js';
+import Admin from '../models/Admin.js';
+import Student from '../models/Student.js';
 
 // @desc    Lấy tất cả lớp
 // @route   GET /api/classes
-// @access  Public
+// @access  Public/Private
 const getAllClasses = async (req, res, next) => {
     try {
-        const classes = await Class.find({ isActive: true })
+        let query = { isActive: true };
+
+        // Nếu là Admin cấp Khoa (Department), chỉ lấy lớp thuộc khoa đó
+        if (req.user && req.user.role === 'Admin') {
+            const admin = await Admin.findById(req.user.userId);
+            if (admin && admin.level === 'Department' && admin.faculty) {
+                query.faculty = admin.faculty;
+            }
+        }
+
+        const classes = await Class.find(query)
             .populate('faculty', 'facultyCode facultyName')
             .sort({ className: 1 });
 
@@ -73,6 +85,19 @@ const createClass = async (req, res, next) => {
     try {
         const { classCode, className, faculty, academicYear } = req.body;
 
+        // Kiểm tra quyền hạn (nếu là Admin Khoa)
+        if (req.user && req.user.role === 'Admin') {
+            const admin = await Admin.findById(req.user.userId);
+            if (admin && admin.level === 'Department') {
+                if (admin.faculty.toString() !== faculty) {
+                    return res.status(403).json({
+                        success: false,
+                        message: 'Bạn chỉ có thể tạo lớp cho khoa của mình'
+                    });
+                }
+            }
+        }
+
         // Kiểm tra thông tin bắt buộc
         if (!classCode || !className || !faculty || !academicYear) {
             return res.status(400).json({
@@ -126,6 +151,27 @@ const updateClass = async (req, res, next) => {
             });
         }
 
+        // Kiểm tra quyền hạn (nếu là Admin Khoa)
+        if (req.user && req.user.role === 'Admin') {
+            const admin = await Admin.findById(req.user.userId);
+            if (admin && admin.level === 'Department') {
+                // Kiểm tra lớp có thuộc khoa của admin không
+                if (classData.faculty.toString() !== admin.faculty.toString()) {
+                    return res.status(403).json({
+                        success: false,
+                        message: 'Bạn chỉ có thể cập nhật lớp thuộc khoa của mình'
+                    });
+                }
+                // Kiểm tra nếu đang cố chuyển lớp sang khoa khác
+                if (faculty && faculty !== admin.faculty.toString()) {
+                    return res.status(403).json({
+                        success: false,
+                        message: 'Bạn không thể chuyển lớp sang khoa khác'
+                    });
+                }
+            }
+        }
+
         // Kiểm tra khoa nếu được cập nhật
         if (faculty) {
             const facultyExists = await Faculty.findById(faculty);
@@ -172,13 +218,26 @@ const deleteClass = async (req, res, next) => {
             });
         }
 
-        // Soft delete
-        classData.isActive = false;
-        await classData.save();
+        // Kiểm tra quyền hạn (nếu là Admin Khoa)
+        if (req.user && req.user.role === 'Admin') {
+            const admin = await Admin.findById(req.user.userId);
+            if (admin && admin.level === 'Department') {
+                if (classData.faculty.toString() !== admin.faculty.toString()) {
+                    return res.status(403).json({
+                        success: false,
+                        message: 'Bạn chỉ có thể xóa lớp thuộc khoa của mình'
+                    });
+                }
+            }
+        }
+
+        // Hard delete class and related students
+        await Class.findByIdAndDelete(req.params.id);
+        await Student.deleteMany({ class: req.params.id });
 
         res.status(200).json({
             success: true,
-            message: 'Xóa lớp thành công'
+            message: 'Xóa lớp và toàn bộ sinh viên trong lớp thành công'
         });
     } catch (error) {
         next(error);

@@ -22,7 +22,8 @@ import {
     markAttendance,
     exportAttendance,
     importAttendance,
-    getEventAttendanceInfo
+    getEventAttendanceInfo,
+    restoreEvent
 } from '../controllers/eventController.js';
 
 const router = express.Router();
@@ -46,6 +47,7 @@ router.post('/attendance-login', loginAttendance); // New
 router.post('/:id/register', registerEvent);
 router.post('/:id/unregister', unregisterEvent);
 router.post('/:id/cancel', cancelEvent);
+router.post('/:id/restore', restoreEvent);
 router.post('/:id/approve', approveEvent);
 router.post('/:id/reject', rejectEvent);
 router.post('/:id/mark-attendance', markAttendance); // New

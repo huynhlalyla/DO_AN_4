@@ -10,12 +10,20 @@
                     Tổng quan và quản lý tất cả các khoa trong trường
                 </p>
             </div>
-            <n-button type="primary" @click="isEditing = false; showModal = true">
-                <template #icon>
-                    <i class="fa-solid fa-plus"></i>
-                </template>
-                Thêm Khoa mới
-            </n-button>
+            <div class="flex gap-2">
+                <n-button type="info" @click="handleOpenAssessment">
+                    <template #icon>
+                        <i class="fa-solid fa-chart-line"></i>
+                    </template>
+                    Tiến độ chấm điểm
+                </n-button>
+                <n-button type="primary" @click="isEditing = false; showModal = true">
+                    <template #icon>
+                        <i class="fa-solid fa-plus"></i>
+                    </template>
+                    Thêm Khoa mới
+                </n-button>
+            </div>
         </div>
 
         <!-- Loading -->
@@ -230,6 +238,21 @@
                 </div>
             </template>
         </n-modal>
+
+        <!-- Assessment Progress Modal -->
+        <n-modal
+            v-model:show="showAssessmentModal"
+            preset="card"
+            title="Tiến độ chấm điểm các Khoa"
+            style="width: 900px"
+        >
+            <n-data-table
+                :columns="assessmentColumns"
+                :data="assessmentFaculties"
+                :loading="assessmentLoading"
+                :pagination="{ pageSize: 10 }"
+            />
+        </n-modal>
     </div>
 </template>
 
@@ -238,9 +261,9 @@ import { ref, onMounted, h, watch } from 'vue';
 import { 
     NCard, NButton, NTag, NSpin, NEmpty, NModal, NForm, NFormItem, 
     NInput, NDescriptions, NDescriptionsItem, NDropdown, NSpace, NSelect,
-    useMessage, useDialog 
+    useMessage, useDialog, NDataTable, NProgress
 } from 'naive-ui';
-import { facultyAPI, classAPI, studentAPI, adminAPI } from '../../services/api';
+import { facultyAPI, classAPI, studentAPI, adminAPI, assessmentAPI } from '../../services/api';
 
 const message = useMessage();
 const dialog = useDialog();
@@ -601,6 +624,86 @@ const handleSecretarySubmit = async () => {
         submittingSecretary.value = false;
     }
 };
+
+// Assessment Logic
+const showAssessmentModal = ref(false)
+const assessmentFaculties = ref([])
+const assessmentLoading = ref(false)
+
+const assessmentColumns = [
+    { title: 'Tên Khoa', key: 'facultyName' },
+    { title: 'Tổng số lớp', key: 'totalClasses', width: 120, align: 'center' },
+    { title: 'Đã duyệt', key: 'approvedClasses', width: 120, align: 'center' },
+    { 
+        title: 'Tiến độ', 
+        key: 'percentage',
+        width: 200,
+        render(row) {
+            return h(NProgress, {
+                type: 'line',
+                percentage: row.percentage,
+                indicatorPlacement: 'inside',
+                status: row.percentage === 100 ? 'success' : 'default'
+            });
+        }
+    },
+    {
+        title: 'Thao tác',
+        key: 'actions',
+        render(row) {
+            if (row.isFinalized) {
+                return h(NTag, { type: 'success', bordered: false }, { default: () => 'Đã chốt' });
+            }
+            return h(NSpace, {}, { default: () => [
+                h(NButton, {
+                    size: 'small',
+                    type: 'primary',
+                    disabled: row.percentage < 100,
+                    onClick: () => handleFinalizeFaculty(row)
+                }, { default: () => 'Chốt điểm' }),
+                h(NButton, {
+                    size: 'small',
+                    type: 'warning',
+                    onClick: () => handleRemindFaculty(row)
+                }, { default: () => 'Nhắc nhở' })
+            ]});
+        }
+    }
+];
+
+const handleOpenAssessment = async () => {
+    showAssessmentModal.value = true
+    assessmentLoading.value = true
+    try {
+        const res = await assessmentAPI.getSchoolFaculties();
+        if (res.success) {
+            assessmentFaculties.value = res.data;
+        }
+    } catch (error) {
+        message.error('Lỗi tải tiến độ chấm điểm')
+    } finally {
+        assessmentLoading.value = false
+    }
+}
+
+const handleFinalizeFaculty = async (fac) => {
+    try {
+        await assessmentAPI.finalizeFaculty({ facultyId: fac._id });
+        message.success('Đã chốt điểm khoa ' + fac.facultyName);
+        handleOpenAssessment(); // Refresh
+    } catch (error) {
+        message.error(error.message || 'Lỗi chốt điểm')
+    }
+}
+
+const handleRemindFaculty = async (fac) => {
+    try {
+        await assessmentAPI.remindFaculty({ facultyId: fac._id });
+        message.success('Đã gửi nhắc nhở tới bí thư khoa ' + fac.facultyName);
+    } catch (error) {
+        message.error('Lỗi gửi nhắc nhở')
+    }
+}
 
 onMounted(async () => {
     await Promise.all([

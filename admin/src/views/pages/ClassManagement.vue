@@ -21,6 +21,11 @@ import { classAPI, facultyAPI, studentAPI, assessmentAPI } from '../../services/
 
 const message = useMessage()
 
+// Get current user info
+const currentUser = JSON.parse(localStorage.getItem('userData') || '{}');
+const isFacultySecretary = currentUser.level === 'Department';
+const userFacultyId = currentUser.faculty;
+
 // State
 const classes = ref([])
 const faculties = ref([])
@@ -40,7 +45,12 @@ const formValue = ref({
 
 // Faculty options for select
 const facultyOptions = computed(() => {
-    return faculties.value.map(f => ({
+    let list = faculties.value;
+    // If user is Faculty Secretary, only show their faculty
+    if (isFacultySecretary && userFacultyId) {
+        list = list.filter(f => f._id === userFacultyId || f._id === userFacultyId._id);
+    }
+    return list.map(f => ({
         label: `${f.facultyCode} - ${f.facultyName} ${!f.isActive ? '(Vô hiệu)' : ''}`,
         value: f._id,
         disabled: !f.isActive
@@ -100,7 +110,7 @@ const columns = [
         title: 'Ngày tạo',
         key: 'createdAt',
         width: 160,
-        render: (row) => new Date(row.createdAt).toLocaleString('vi-VN')
+        render: (row) => new Date(row.createdAt).toLocaleDateString('vi-VN')
     },
     {
         title: 'Thao tác',
@@ -189,7 +199,7 @@ const handleCreate = () => {
     formValue.value = {
         classCode: '',
         className: '',
-        faculty: null,
+        faculty: isFacultySecretary ? (userFacultyId._id || userFacultyId) : null,
         academicYear: ''
     }
     showModal.value = true
@@ -285,6 +295,9 @@ const assessmentColumns = [
         title: 'Thao tác',
         key: 'actions',
         render(row) {
+            if (row.isApproved) {
+                return h(NTag, { type: 'success', bordered: false }, { default: () => 'Đã duyệt' });
+            }
             return h(NSpace, {}, { default: () => [
                 h(NButton, {
                     size: 'small',

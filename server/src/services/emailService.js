@@ -66,14 +66,33 @@ export const sendEventCancellationEmail = async (emails, event, reason) => {
     try {
         if (!emails || emails.length === 0) return { success: true, message: 'No recipients' };
 
-        const subject = `Thông báo HỦY sự kiện: ${event.eventName}`;
+        const subject = `[QUAN TRỌNG] Thông báo HỦY sự kiện: ${event.eventName}`;
         const message = `
-            <h2>Thông báo hủy sự kiện</h2>
-            <p>Xin chào,</p>
-            <p>Chúng tôi rất tiếc phải thông báo rằng sự kiện <strong>${event.eventName}</strong> dự kiến diễn ra vào ngày <strong>${new Date(event.eventDate).toLocaleDateString('vi-VN')}</strong> đã bị hủy.</p>
-            <p><strong>Lý do:</strong> ${reason || 'Lý do bất khả kháng'}</p>
-            <p>Chúng tôi thành thật xin lỗi vì sự bất tiện này.</p>
-            <p>Trân trọng,<br>Ban tổ chức sự kiện</p>
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 8px;">
+                <div style="text-align: center; margin-bottom: 20px;">
+                    <h2 style="color: #d32f2f; margin: 0;">THÔNG BÁO HỦY SỰ KIỆN</h2>
+                </div>
+                
+                <p>Xin chào,</p>
+                
+                <p>Ban tổ chức xin trân trọng thông báo về việc hủy sự kiện sau:</p>
+                
+                <div style="background-color: #f9f9f9; padding: 15px; border-radius: 6px; margin: 15px 0;">
+                    <p style="margin: 5px 0;"><strong>Sự kiện:</strong> ${event.eventName}</p>
+                    <p style="margin: 5px 0;"><strong>Thời gian dự kiến:</strong> ${new Date(event.eventDate).toLocaleDateString('vi-VN')}</p>
+                    <p style="margin: 5px 0;"><strong>Địa điểm:</strong> ${event.location || 'Chưa xác định'}</p>
+                </div>
+
+                <p><strong>Lý do hủy:</strong> ${reason || 'Do thay đổi kế hoạch tổ chức từ phía Ban tổ chức.'}</p>
+                
+                <p>Chúng tôi thành thật xin lỗi vì sự bất tiện này và mong nhận được sự thông cảm của bạn.</p>
+                
+                <p>Nếu có bất kỳ thắc mắc nào, vui lòng liên hệ với Ban tổ chức hoặc Văn phòng Khoa/Trường.</p>
+                
+                <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee; font-size: 12px; color: #666;">
+                    <p>Trân trọng,<br>Hệ thống Quản lý Điểm rèn luyện</p>
+                </div>
+            </div>
         `;
 
         const mailOptions = {

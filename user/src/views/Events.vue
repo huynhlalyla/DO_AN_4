@@ -284,7 +284,7 @@ import {
     NCard, NGrid, NGi, NInput, NSelect, NTag, NButton, NSpin, NEmpty, NPagination, NH4, NModal, NProgress, useMessage 
 } from 'naive-ui';
 import { eventAPI } from '../services/api';
-import { formatDate, isEventOpen, isEventUpcoming, isEventEnded } from '../utils/dateFormat';
+import { formatDate, isEventOpen, isEventUpcoming, isEventEnded, combineDateAndTime } from '../utils/dateFormat';
 
 const message = useMessage();
 const loading = ref(false);
@@ -397,22 +397,21 @@ const filteredEvents = computed(() => {
 
     // Filter Status
     if (filterStatus.value !== 'all') {
-        const now = new Date();
         result = result.filter(e => {
-            const start = new Date(e.eventDate);
-            const end = e.endDate ? new Date(e.endDate) : new Date(start);
-            
-            if (filterStatus.value === 'upcoming') return start > now;
-            if (filterStatus.value === 'ongoing') return start <= now && end >= now;
-            if (filterStatus.value === 'ended') return end < now;
+            if (filterStatus.value === 'upcoming') return checkEventUpcoming(e);
+            if (filterStatus.value === 'ongoing') return checkEventOpen(e);
+            if (filterStatus.value === 'ended') return checkEventEnded(e);
             return true;
         });
     }
 
     // Sort
     result.sort((a, b) => {
-        if (sortBy.value === 'date_desc') return new Date(b.eventDate) - new Date(a.eventDate);
-        if (sortBy.value === 'date_asc') return new Date(a.eventDate) - new Date(b.eventDate);
+        const { start: dateA } = getEventDates(a);
+        const { start: dateB } = getEventDates(b);
+        
+        if (sortBy.value === 'date_desc') return dateB - dateA;
+        if (sortBy.value === 'date_asc') return dateA - dateB;
         if (sortBy.value === 'score_desc') return b.score - a.score;
         if (sortBy.value === 'score_asc') return a.score - b.score;
         return 0;
@@ -439,18 +438,46 @@ const getScopeTagType = (scope) => {
     return map[scope] || 'default';
 };
 
+const getEventDates = (event) => {
+    const start = combineDateAndTime(event.eventDate, event.startTime);
+    let end = combineDateAndTime(event.endDate || event.eventDate, event.endTime);
+    
+    // If no end time/date, default to end of start day
+    if (!event.endTime && !event.endDate) {
+        end = new Date(start);
+        end.setHours(23, 59, 59, 999);
+    } else if (!event.endTime && event.endDate) {
+         // If end date but no end time, default to end of end day
+         end.setHours(23, 59, 59, 999);
+    }
+    
+    return { start, end };
+};
+
+const checkEventOpen = (event) => {
+    const { start, end } = getEventDates(event);
+    return isEventOpen(start, end);
+};
+
+const checkEventUpcoming = (event) => {
+    const { start } = getEventDates(event);
+    return isEventUpcoming(start);
+};
+
+const checkEventEnded = (event) => {
+    const { end } = getEventDates(event);
+    return isEventEnded(end);
+};
+
 const getEventStatus = (event) => {
-    // Use endDate for checking if ended, fallback to eventDate if endDate is missing
-    const endDate = event.endDate || event.eventDate;
-    if (isEventEnded(endDate)) return 'Đã kết thúc';
-    if (isEventUpcoming(event.eventDate)) return 'Sắp diễn ra';
+    if (checkEventEnded(event)) return 'Đã kết thúc';
+    if (checkEventUpcoming(event)) return 'Sắp diễn ra';
     return 'Đang diễn ra';
 };
 
 const getStatusTagType = (event) => {
-    const endDate = event.endDate || event.eventDate;
-    if (isEventEnded(endDate)) return 'default';
-    if (isEventUpcoming(event.eventDate)) return 'warning';
+    if (checkEventEnded(event)) return 'default';
+    if (checkEventUpcoming(event)) return 'warning';
     return 'success';
 };
 
@@ -461,17 +488,10 @@ const canRegister = (event) => {
     if (isRegistered(event._id)) return false;
     
     // Check if event has started (registration closes when event starts)
+    const { start } = getEventDates(event);
     const now = new Date();
-    const startDate = new Date(event.eventDate);
-    
-    if (event.startTime) {
-        const [hours, minutes] = event.startTime.split(':');
-        startDate.setHours(parseInt(hours), parseInt(minutes), 0, 0);
-    } else {
-        startDate.setHours(0, 0, 0, 0);
-    }
 
-    if (now >= startDate) return false;
+    if (now >= start) return false;
     
     // Check scope eligibility
     if (event.scope === 'faculty') {

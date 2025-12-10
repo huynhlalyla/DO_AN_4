@@ -8,6 +8,8 @@ import Event from '../models/Event.js';
 import Student from '../models/Student.js';
 import Class from '../models/Class.js';
 import StudentAssessment from '../models/StudentAssessment.js';
+import Faculty from '../models/Faculty.js';
+import Admin from '../models/Admin.js';
 import { sendEmail } from '../services/emailService.js';
 
 // Helper to check if within student grading period (1 week from start)
@@ -159,13 +161,21 @@ export const getStudentScoreSheet = async (req, res) => {
         // Calculate Grand Total
         const grandTotal = scoreSheet.reduce((sum, cat) => sum + cat.totalScore, 0);
 
+        // Get Assessment Status
+        const assessment = await StudentAssessment.findOne({
+            student: studentId,
+            semester: semester.semesterNumber,
+            academicYear: semester.academicYear
+        });
+
         res.status(200).json({
             success: true,
             data: {
                 semester,
                 scoreSheet,
                 grandTotal,
-                isGradingPeriod: isWithinGradingPeriod(semester)
+                isGradingPeriod: isWithinGradingPeriod(semester),
+                assessmentStatus: assessment ? assessment.status : 'pending'
             }
         });
 
@@ -647,12 +657,20 @@ export const getFacultyClassesStatus = async (req, res) => {
                 status: { $in: ['class_reviewed', 'faculty_reviewed', 'finalized'] }
             });
 
+            const facultyReviewedCount = await StudentAssessment.countDocuments({
+                student: { $in: studentIds },
+                semester: semester.semesterNumber,
+                academicYear: semester.academicYear,
+                status: { $in: ['faculty_reviewed', 'finalized'] }
+            });
+
             return {
                 _id: cls._id,
                 className: cls.className,
                 studentCount,
                 finalizedCount,
-                percentage: studentCount > 0 ? Math.round((finalizedCount / studentCount) * 100) : 0
+                percentage: studentCount > 0 ? Math.round((finalizedCount / studentCount) * 100) : 0,
+                isApproved: studentCount > 0 && facultyReviewedCount === studentCount
             };
         }));
 
@@ -668,7 +686,23 @@ export const approveClassAssessment = async (req, res) => {
     try {
         const { classId, semesterId } = req.body;
 
-        const semester = await Semester.findById(semesterId);
+        let semester;
+        if (semesterId) {
+            semester = await Semester.findById(semesterId);
+        }
+
+        if (!semester) {
+            const now = new Date();
+            semester = await Semester.findOne({
+                startDate: { $lte: now },
+                endDate: { $gte: now },
+                isActive: true
+            });
+        }
+
+        if (!semester) {
+            return res.status(404).json({ success: false, message: 'Không tìm thấy thông tin học kỳ' });
+        }
 
         const studentCount = await Student.countDocuments({ class: classId });
         const students = await Student.find({ class: classId }).select('_id');
@@ -727,6 +761,175 @@ export const remindClassSecretary = async (req, res) => {
 
     } catch (error) {
         console.error('Remind error:', error);
+        res.status(500).json({ success: false, message: 'Lỗi gửi nhắc nhở' });
+    }
+};
+
+// --- School Secretary Functions ---
+
+export const getSchoolAssessmentStatus = async (req, res) => {
+    try {
+        const { semesterId } = req.query;
+
+        let semester;
+        if (semesterId) {
+            semester = await Semester.findById(semesterId);
+        } else {
+            const now = new Date();
+            semester = await Semester.findOne({
+                startDate: { $lte: now },
+                endDate: { $gte: now },
+                isActive: true
+            });
+        }
+
+        if (!semester) {
+             return res.status(404).json({ success: false, message: 'Không tìm thấy học kỳ' });
+        }
+
+        const faculties = await Faculty.find({ isActive: true });
+        
+        const result = await Promise.all(faculties.map(async (fac) => {
+            const classes = await Class.find({ faculty: fac._id });
+            const totalClasses = classes.length;
+            
+            let approvedClasses = 0;
+            
+            for (const cls of classes) {
+                const studentCount = await Student.countDocuments({ class: cls._id });
+                if (studentCount === 0) {
+                    approvedClasses++; 
+                    continue;
+                }
+
+                const students = await Student.find({ class: cls._id }).select('_id');
+                const studentIds = students.map(s => s._id);
+
+                const facultyReviewedCount = await StudentAssessment.countDocuments({
+                    student: { $in: studentIds },
+                    semester: semester.semesterNumber,
+                    academicYear: semester.academicYear,
+                    status: { $in: ['faculty_reviewed', 'finalized'] }
+                });
+
+                if (facultyReviewedCount === studentCount) {
+                    approvedClasses++;
+                }
+            }
+
+            const totalStudentsInFaculty = await Student.countDocuments({ class: { $in: classes.map(c => c._id) } });
+            const finalizedStudentsCount = await StudentAssessment.countDocuments({
+                student: { $in: await Student.find({ class: { $in: classes.map(c => c._id) } }).distinct('_id') },
+                semester: semester.semesterNumber,
+                academicYear: semester.academicYear,
+                status: 'finalized'
+            });
+
+            return {
+                _id: fac._id,
+                facultyName: fac.facultyName,
+                totalClasses,
+                approvedClasses,
+                percentage: totalClasses > 0 ? Math.round((approvedClasses / totalClasses) * 100) : 0,
+                isFinalized: totalStudentsInFaculty > 0 && finalizedStudentsCount === totalStudentsInFaculty
+            };
+        }));
+
+        res.status(200).json({ success: true, data: result });
+
+    } catch (error) {
+        console.error('Get school stats error:', error);
+        res.status(500).json({ success: false, message: 'Lỗi lấy thống kê trường' });
+    }
+};
+
+export const finalizeFacultyAssessment = async (req, res) => {
+    try {
+        const { facultyId, semesterId } = req.body;
+
+        let semester;
+        if (semesterId) {
+            semester = await Semester.findById(semesterId);
+        } else {
+            const now = new Date();
+            semester = await Semester.findOne({
+                startDate: { $lte: now },
+                endDate: { $gte: now },
+                isActive: true
+            });
+        }
+
+        if (!semester) {
+             return res.status(404).json({ success: false, message: 'Không tìm thấy học kỳ' });
+        }
+
+        // Check if all classes are approved
+        const classes = await Class.find({ faculty: facultyId });
+        for (const cls of classes) {
+            const studentCount = await Student.countDocuments({ class: cls._id });
+            if (studentCount === 0) continue;
+
+            const students = await Student.find({ class: cls._id }).select('_id');
+            const studentIds = students.map(s => s._id);
+
+            const facultyReviewedCount = await StudentAssessment.countDocuments({
+                student: { $in: studentIds },
+                semester: semester.semesterNumber,
+                academicYear: semester.academicYear,
+                status: { $in: ['faculty_reviewed', 'finalized'] }
+            });
+
+            if (facultyReviewedCount < studentCount) {
+                return res.status(400).json({ success: false, message: `Lớp ${cls.className} chưa được khoa duyệt xong` });
+            }
+        }
+
+        // Update all to finalized
+        const allStudents = await Student.find({ class: { $in: classes.map(c => c._id) } }).select('_id');
+        const allStudentIds = allStudents.map(s => s._id);
+
+        await StudentAssessment.updateMany(
+            {
+                student: { $in: allStudentIds },
+                semester: semester.semesterNumber,
+                academicYear: semester.academicYear
+            },
+            {
+                $set: {
+                    status: 'finalized',
+                    schoolReviewedBy: req.user.userId,
+                    schoolReviewedAt: new Date()
+                }
+            }
+        );
+
+        res.status(200).json({ success: true, message: 'Đã chốt điểm cho khoa' });
+
+    } catch (error) {
+        console.error('Finalize faculty error:', error);
+        res.status(500).json({ success: false, message: 'Lỗi chốt điểm khoa' });
+    }
+};
+
+export const remindFacultySecretary = async (req, res) => {
+    try {
+        const { facultyId } = req.body;
+
+        const secretary = await Admin.findOne({ faculty: facultyId, level: 'Department' });
+        if (!secretary) {
+            return res.status(404).json({ success: false, message: 'Khoa chưa có bí thư' });
+        }
+
+        await sendEmail(
+            secretary.email,
+            'Nhắc nhở duyệt điểm rèn luyện',
+            `Chào ${secretary.firstName},<br>Vui lòng hoàn thành việc duyệt điểm rèn luyện cho các lớp trong khoa của bạn.`
+        );
+
+        res.status(200).json({ success: true, message: 'Đã gửi nhắc nhở' });
+
+    } catch (error) {
+        console.error('Remind faculty error:', error);
         res.status(500).json({ success: false, message: 'Lỗi gửi nhắc nhở' });
     }
 };

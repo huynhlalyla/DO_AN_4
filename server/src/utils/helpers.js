@@ -24,6 +24,28 @@ export const removeVietnameseTones = (str, removeSpaces = true) => {
 };
 
 /**
+ * Kết hợp Date và Time string thành Date object
+ * @param {Date} date - Ngày
+ * @param {string} timeStr - Chuỗi giờ (HH:mm)
+ * @returns {Date} - Date object đã set giờ
+ */
+export const combineDateAndTime = (date, timeStr) => {
+    const d = new Date(date);
+    if (!timeStr) return d;
+    
+    try {
+        const [hours, minutes] = timeStr.split(':').map(Number);
+        if (!isNaN(hours) && !isNaN(minutes)) {
+            d.setHours(hours, minutes, 0, 0);
+        }
+    } catch (e) {
+        console.error('Error parsing time:', e);
+    }
+    
+    return d;
+};
+
+/**
  * Tạo email từ họ, tên và mã sinh viên
  * Format: Chữ cái đầu của từng từ trong họ + tên + mssv (viết thường không dấu)
  * Ví dụ: Trần Bình An + CNTT2211036 = tbacntt2211036@example.com

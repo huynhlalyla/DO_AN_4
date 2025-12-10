@@ -96,9 +96,9 @@
 
                             <!-- Note Cell -->
                             <td class="text-sm text-slate-500">
-                                <div v-if="crit.note" :class="{'text-red-500': crit.note.includes('rejected')}">
+                                <div v-if="crit.note" :class="{'text-red-500': crit.note.includes('rejected') || crit.note.includes('Bị từ chối')}">
                                     {{ handleNote(crit.note) }}
-                                      <!-- haha -->
+                                      <!-- {{ crit.note }} -->
                                 </div>
                                 <div v-if="crit.evidence && crit.evidence.length > 0" class="mt-1">
                                     <n-popover trigger="hover">
@@ -147,6 +147,23 @@
                     </tr>
                 </tfoot>
             </n-table>
+        </div>
+
+        <!-- Final Result -->
+        <div v-if="assessmentStatus === 'finalized'" class="mt-6 bg-white dark:bg-slate-800 rounded-xl shadow-sm p-6 border border-slate-200 dark:border-slate-700 text-center">
+            <h2 class="text-xl font-bold text-slate-800 dark:text-white mb-4">KẾT QUẢ ĐÁNH GIÁ</h2>
+            <div class="flex flex-col md:flex-row justify-center gap-8">
+                <div class="p-4 bg-slate-50 dark:bg-slate-900 rounded-lg min-w-[200px]">
+                    <p class="text-slate-500 dark:text-slate-400 mb-2">Điểm tổng kết</p>
+                    <p class="text-4xl font-bold text-blue-600 dark:text-blue-400">{{ grandTotal }}</p>
+                </div>
+                <div class="p-4 bg-slate-50 dark:bg-slate-900 rounded-lg min-w-[200px]">
+                    <p class="text-slate-500 dark:text-slate-400 mb-2">Xếp loại</p>
+                    <n-tag :type="classifyScore(grandTotal).color" size="large" class="text-2xl px-6 py-4 h-auto">
+                        {{ classifyScore(grandTotal).label }}
+                    </n-tag>
+                </div>
+            </div>
         </div>
 
         <n-empty v-else description="Không có dữ liệu bảng điểm" class="mt-12" />
@@ -214,6 +231,7 @@ const scoreSheet = ref([]);
 const semester = ref(null);
 const grandTotal = ref(0);
 const isGradingPeriod = ref(false);
+const assessmentStatus = ref('pending');
 
 // Modal state
 const showModal = ref(false);
@@ -237,7 +255,8 @@ const daysRemaining = computed(() => {
 
 const calculateCategorySelfScore = (category) => {
     if (!category || !Array.isArray(category.criteria)) return 0;
-    return category.criteria.reduce((sum, crit) => sum + (Number(crit.selfScore) || 0), 0);
+    const sum = category.criteria.reduce((sum, crit) => sum + (Number(crit.selfScore) || 0), 0);
+    return Math.min(sum, category.maxScore);
 };
 
 const totalSelfScore = computed(() => {
@@ -267,6 +286,7 @@ const fetchData = async () => {
             semester.value = response.data.semester;
             grandTotal.value = response.data.grandTotal;
             isGradingPeriod.value = response.data.isGradingPeriod;
+            assessmentStatus.value = response.data.assessmentStatus;
         }
     } catch (error) {
         console.error(error);
@@ -318,6 +338,26 @@ const submitScore = async () => {
         return;
     }
 
+    // Validate category max score
+    const category = scoreSheet.value.find(cat => 
+        cat.criteria.some(c => c._id === selectedCriteria.value._id)
+    );
+
+    if (category) {
+        const currentCategoryScore = category.criteria.reduce((sum, c) => {
+            if (c._id === selectedCriteria.value._id) return sum;
+            return sum + (Number(c.selfScore) || 0);
+        }, 0);
+
+        const newTotalScore = currentCategoryScore + (Number(form.value.selfScore) || 0);
+        const oldTotalScore = currentCategoryScore + (Number(selectedCriteria.value.selfScore) || 0);
+
+        if (newTotalScore > category.maxScore && newTotalScore >= oldTotalScore) {
+            message.error(`Tổng điểm tự chấm của mục này không được vượt quá ${category.maxScore} điểm`);
+            return;
+        }
+    }
+
     submitting.value = true;
     try {
         const response = await assessmentAPI.submitScore({
@@ -341,14 +381,25 @@ const submitScore = async () => {
 };
 
 const handleNote = (note) => {
-    if (note.includes('rejected')) {
+    if (!note) return '';
+    if (note.includes('Bị từ chối')) {
+        return note;
+    } else if (note.includes('rejected')) {
         return 'Từ chối';
     } else if (note.includes('approved')) {
         return 'Được duyệt';
     } else {
-        return "Đợi duyệt"
+        return "Đợi duyệt";
     }
 }
+
+const classifyScore = (score) => {
+    if (score >= 90) return { label: 'Xuất sắc', color: 'success' };
+    if (score >= 80) return { label: 'Tốt', color: 'info' };
+    if (score >= 65) return { label: 'Khá', color: 'warning' };
+    if (score >= 50) return { label: 'Trung bình', color: 'warning' };
+    return { label: 'Yếu', color: 'error' };
+};
 
 onMounted(() => {
     fetchData();

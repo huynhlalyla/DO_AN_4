@@ -13,9 +13,10 @@ import {
     useMessage,
     useDialog,
     NTag,
-    NSpin
+    NSpin,
+    NProgress
 } from 'naive-ui'
-import { facultyAPI } from '../../services/api'
+import { facultyAPI, assessmentAPI } from '../../services/api'
 
 const message = useMessage()
 const dialog = useDialog()
@@ -145,6 +146,86 @@ const rowClassName = (row) => {
     return row.isActive ? '' : 'disabled-row'
 }
 
+// Assessment Logic
+const showAssessmentModal = ref(false)
+const assessmentFaculties = ref([])
+const assessmentLoading = ref(false)
+
+const assessmentColumns = [
+    { title: 'Tên Khoa', key: 'facultyName' },
+    { title: 'Tổng số lớp', key: 'totalClasses', width: 120, align: 'center' },
+    { title: 'Đã duyệt', key: 'approvedClasses', width: 120, align: 'center' },
+    { 
+        title: 'Tiến độ', 
+        key: 'percentage',
+        width: 200,
+        render(row) {
+            return h(NProgress, {
+                type: 'line',
+                percentage: row.percentage,
+                indicatorPlacement: 'inside',
+                status: row.percentage === 100 ? 'success' : 'default'
+            });
+        }
+    },
+    {
+        title: 'Thao tác',
+        key: 'actions',
+        render(row) {
+            if (row.isFinalized) {
+                return h(NTag, { type: 'success', bordered: false }, { default: () => 'Đã chốt' });
+            }
+            return h(NSpace, {}, { default: () => [
+                h(NButton, {
+                    size: 'small',
+                    type: 'primary',
+                    disabled: row.percentage < 100,
+                    onClick: () => handleFinalizeFaculty(row)
+                }, { default: () => 'Chốt điểm' }),
+                h(NButton, {
+                    size: 'small',
+                    type: 'warning',
+                    onClick: () => handleRemindFaculty(row)
+                }, { default: () => 'Nhắc nhở' })
+            ]});
+        }
+    }
+];
+
+const handleOpenAssessment = async () => {
+    showAssessmentModal.value = true
+    assessmentLoading.value = true
+    try {
+        const res = await assessmentAPI.getSchoolFaculties();
+        if (res.success) {
+            assessmentFaculties.value = res.data;
+        }
+    } catch (error) {
+        message.error('Lỗi tải tiến độ chấm điểm')
+    } finally {
+        assessmentLoading.value = false
+    }
+}
+
+const handleFinalizeFaculty = async (fac) => {
+    try {
+        await assessmentAPI.finalizeFaculty({ facultyId: fac._id });
+        message.success('Đã chốt điểm khoa ' + fac.facultyName);
+        handleOpenAssessment(); // Refresh
+    } catch (error) {
+        message.error(error.message || 'Lỗi chốt điểm')
+    }
+}
+
+const handleRemindFaculty = async (fac) => {
+    try {
+        await assessmentAPI.remindFaculty({ facultyId: fac._id });
+        message.success('Đã gửi nhắc nhở tới bí thư khoa ' + fac.facultyName);
+    } catch (error) {
+        message.error('Lỗi gửi nhắc nhở')
+    }
+}
+
 // Fetch faculties
 const fetchFaculties = async () => {
     loading.value = true
@@ -255,12 +336,20 @@ onMounted(() => {
                     Quản lý thông tin các khoa trong trường
                 </p>
             </div>
-            <NButton type="primary" size="large" @click="handleCreate">
-                <template #icon>
-                    <i class="fa-solid fa-plus"></i>
-                </template>
-                Thêm khoa mới
-            </NButton>
+            <NSpace>
+                <NButton type="info" size="large" @click="handleOpenAssessment">
+                    <template #icon>
+                        <i class="fa-solid fa-chart-pie"></i>
+                    </template>
+                    Tiến độ chấm điểm
+                </NButton>
+                <NButton type="primary" size="large" @click="handleCreate">
+                    <template #icon>
+                        <i class="fa-solid fa-plus"></i>
+                    </template>
+                    Thêm khoa mới
+                </NButton>
+            </NSpace>
         </div>
     </NCard>
 
@@ -330,6 +419,26 @@ onMounted(() => {
                 </NButton>
             </div>
         </template>
+    </NModal>
+
+    <!-- Assessment Progress Modal -->
+    <NModal
+        v-model:show="showAssessmentModal"
+        preset="card"
+        title="Tiến độ chấm điểm các Khoa"
+        class="w-full max-w-5xl"
+    >
+        <div v-if="assessmentLoading" class="flex justify-center py-8">
+            <NSpin size="large" />
+        </div>
+        <NDataTable
+            v-else
+            :columns="assessmentColumns"
+            :data="assessmentFaculties"
+            :pagination="{ pageSize: 10 }"
+            :bordered="false"
+            striped
+        />
     </NModal>
 </NSpace>
 </template>

@@ -8,6 +8,7 @@ import Student from '../models/Student.js';
 import EventParticipation from '../models/EventParticipation.js';
 import Semester from '../models/Semester.js';
 import { sendEventCancellationEmail } from '../services/emailService.js';
+import { combineDateAndTime } from '../utils/helpers.js';
 import e from 'express';
 
 // Lấy tất cả sự kiện
@@ -25,7 +26,10 @@ export const getAllEvents = async (req, res) => {
 
         // Filter by Faculty (for Department level)
         if (level === 'Department' && facultyId) {
-            query.targetFaculty = facultyId;
+            query.$or = [
+                { targetFaculty: facultyId },
+                { organizer: facultyId, organizerModel: 'Faculty' }
+            ];
         }
 
         const events = await Event.find(query)
@@ -752,8 +756,18 @@ export const registerEvent = async (req, res) => {
         }
 
         const now = new Date();
-        if (new Date(event.eventDate) < now) {
-             return res.status(400).json({ success: false, message: 'Sự kiện đã kết thúc' });
+        
+        // Tính thời hạn đăng ký (dựa vào thời gian bắt đầu sự kiện)
+        let registrationDeadline = new Date(event.eventDate);
+        if (event.startTime) {
+            registrationDeadline = combineDateAndTime(event.eventDate, event.startTime);
+        } else {
+            // Nếu không có giờ bắt đầu, cho phép đăng ký đến hết ngày
+            registrationDeadline.setHours(23, 59, 59, 999);
+        }
+
+        if (now > registrationDeadline) {
+             return res.status(400).json({ success: false, message: 'Đã quá hạn đăng ký' });
         }
 
         const student = await Student.findById(studentId);
@@ -873,6 +887,48 @@ export const cancelEvent = async (req, res) => {
 
     } catch (error) {
         res.status(500).json({ success: false, message: 'Lỗi hủy sự kiện', error: error.message });
+    }
+};
+
+export const restoreEvent = async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        const event = await Event.findById(id);
+        if (!event) {
+            return res.status(404).json({ success: false, message: 'Sự kiện không tồn tại' });
+        }
+
+        if (event.isActive) {
+            return res.status(400).json({ success: false, message: 'Sự kiện đang hoạt động' });
+        }
+
+        // Check if restore is allowed (at least 1 day before eventDate)
+        const now = new Date();
+        const eventDate = new Date(event.eventDate);
+        const oneDayBefore = new Date(eventDate);
+        oneDayBefore.setDate(eventDate.getDate() - 1);
+
+        if (now > oneDayBefore) {
+            return res.status(400).json({ success: false, message: 'Không thể khôi phục sự kiện (đã quá hạn khôi phục)' });
+        }
+
+        event.isActive = true;
+        await event.save();
+
+        // Restore participations
+        await EventParticipation.updateMany(
+            { event: id, status: 'cancelled' },
+            { status: 'registered' }
+        );
+
+        res.status(200).json({
+            success: true,
+            message: 'Đã khôi phục sự kiện thành công'
+        });
+
+    } catch (error) {
+        res.status(500).json({ success: false, message: 'Lỗi khôi phục sự kiện', error: error.message });
     }
 };
 

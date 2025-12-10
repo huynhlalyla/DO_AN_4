@@ -1,4 +1,6 @@
 import Faculty from '../models/Faculty.js';
+import Class from '../models/Class.js';
+import Student from '../models/Student.js';
 
 // @desc    Lấy tất cả khoa
 // @route   GET /api/faculties
@@ -120,13 +122,14 @@ const deleteFaculty = async (req, res, next) => {
             });
         }
 
-        // Soft delete
-        faculty.isActive = false;
-        await faculty.save();
+        // Hard delete faculty, related classes and students
+        await Faculty.findByIdAndDelete(req.params.id);
+        await Class.deleteMany({ faculty: req.params.id });
+        await Student.deleteMany({ faculty: req.params.id });
 
         res.status(200).json({
             success: true,
-            message: 'Xóa khoa thành công'
+            message: 'Xóa khoa và toàn bộ lớp, sinh viên thuộc khoa thành công'
         });
     } catch (error) {
         next(error);

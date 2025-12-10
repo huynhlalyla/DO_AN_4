@@ -97,7 +97,9 @@ export const classAPI = {
     // Lấy tất cả lớp
     getAll: async () => {
         try {
-            const response = await fetch(`${API_BASE_URL}/classes`);
+            const response = await fetch(`${API_BASE_URL}/classes`, {
+                headers: getHeaders()
+            });
             return handleResponse(response);
         } catch (error) {
             return handleError(error);
@@ -107,7 +109,9 @@ export const classAPI = {
     // Lấy lớp theo ID
     getById: async (id) => {
         try {
-            const response = await fetch(`${API_BASE_URL}/classes/${id}`);
+            const response = await fetch(`${API_BASE_URL}/classes/${id}`, {
+                headers: getHeaders()
+            });
             return handleResponse(response);
         } catch (error) {
             return handleError(error);
@@ -117,7 +121,9 @@ export const classAPI = {
     // Lấy lớp theo khoa
     getByFaculty: async (facultyId) => {
         try {
-            const response = await fetch(`${API_BASE_URL}/classes/faculty/${facultyId}`);
+            const response = await fetch(`${API_BASE_URL}/classes/faculty/${facultyId}`, {
+                headers: getHeaders()
+            });
             return handleResponse(response);
         } catch (error) {
             return handleError(error);
@@ -129,9 +135,7 @@ export const classAPI = {
         try {
             const response = await fetch(`${API_BASE_URL}/classes`, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
+                headers: getHeaders(),
                 body: JSON.stringify(data),
             });
             return handleResponse(response);
@@ -145,9 +149,7 @@ export const classAPI = {
         try {
             const response = await fetch(`${API_BASE_URL}/classes/${id}`, {
                 method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
+                headers: getHeaders(),
                 body: JSON.stringify(data),
             });
             return handleResponse(response);
@@ -161,6 +163,7 @@ export const classAPI = {
         try {
             const response = await fetch(`${API_BASE_URL}/classes/${id}`, {
                 method: 'DELETE',
+                headers: getHeaders()
             });
             return handleResponse(response);
         } catch (error) {
@@ -683,6 +686,18 @@ export const eventAPI = {
             return handleError(error);
         }
     },
+
+    restore: async (id) => {
+        try {
+            const response = await fetch(`${API_BASE_URL}/events/${id}/restore`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            });
+            return handleResponse(response);
+        } catch (error) {
+            return handleError(error);
+        }
+    },
     
     delete: async (id) => {
         try {
@@ -903,6 +918,46 @@ export const assessmentAPI = {
     remindClass: async (data) => {
         try {
             const response = await fetch(`${API_BASE_URL}/students/assessment/faculty/remind`, {
+                method: 'POST',
+                headers: getHeaders(),
+                body: JSON.stringify(data)
+            });
+            return handleResponse(response);
+        } catch (error) {
+            return handleError(error);
+        }
+    },
+
+    getSchoolFaculties: async (semesterId) => {
+        try {
+            const url = new URL(`${API_BASE_URL}/students/assessment/school/faculties`);
+            if (semesterId) url.searchParams.append('semesterId', semesterId);
+            
+            const response = await fetch(url, {
+                headers: getHeaders()
+            });
+            return handleResponse(response);
+        } catch (error) {
+            return handleError(error);
+        }
+    },
+
+    finalizeFaculty: async (data) => {
+        try {
+            const response = await fetch(`${API_BASE_URL}/students/assessment/school/finalize-faculty`, {
+                method: 'POST',
+                headers: getHeaders(),
+                body: JSON.stringify(data)
+            });
+            return handleResponse(response);
+        } catch (error) {
+            return handleError(error);
+        }
+    },
+
+    remindFaculty: async (data) => {
+        try {
+            const response = await fetch(`${API_BASE_URL}/students/assessment/school/remind-faculty`, {
                 method: 'POST',
                 headers: getHeaders(),
                 body: JSON.stringify(data)

@@ -328,12 +328,15 @@ const columns = [
         width: 100,
         align: 'center',
         render: (row) => {
+            if (!row.isActive) {
+                return h(NTag, { type: 'error', size: 'small' }, { default: () => 'Đã hủy' })
+            }
             const statusMap = {
                 pending: { type: 'warning', text: 'Chờ duyệt' },
                 approved: { type: 'success', text: 'Đã duyệt' },
                 rejected: { type: 'error', text: 'Từ chối' }
             }
-            const status = statusMap[row.approvalStatus]
+            const status = statusMap[row.approvalStatus] || { type: 'default', text: 'N/A' }
             return h(NTag, { type: status.type, size: 'small' }, { default: () => status.text })
         }
     },
@@ -352,6 +355,17 @@ const columns = [
                 }
                 return false
             }
+
+            const canRestore = () => {
+                if (activeTab.value !== 'cancelled') return false;
+                // Check if event date is at least 1 day from now
+                const now = new Date();
+                const eventDate = new Date(row.eventDate);
+                const oneDayBefore = new Date(eventDate);
+                oneDayBefore.setDate(eventDate.getDate() - 1);
+                return now <= oneDayBefore;
+            }
+
             return h(
                 NSpace,
                 { size: 8 },
@@ -382,7 +396,7 @@ const columns = [
                         },
                         { default: () => 'Từ chối' }
                     ),
-                    h(
+                    activeTab.value === 'active' && h(
                         NButton,
                         {
                             size: 'small',
@@ -419,6 +433,26 @@ const columns = [
                                     ghost: true
                                 },
                                 { default: () => 'Hủy' }
+                            )
+                        }
+                    ),
+                    canRestore() && h(
+                        NPopconfirm,
+                        {
+                            onPositiveClick: () => handleRestore(row._id),
+                            'positive-text': 'Khôi phục',
+                            'negative-text': 'Hủy'
+                        },
+                        {
+                            default: () => 'Bạn có chắc muốn khôi phục sự kiện này?',
+                            trigger: () => h(
+                                NButton,
+                                {
+                                    size: 'small',
+                                    type: 'success',
+                                    ghost: true
+                                },
+                                { default: () => 'Khôi phục' }
                             )
                         }
                     ),
@@ -641,8 +675,18 @@ const handleEdit = (event) => {
 
 const handleCancel = async (event) => {
     try {
-        await eventAPI.cancel(event._id, 'Sự kiện bị hủy bởi quản trị viên.')
+        await eventAPI.cancel(event._id)
         message.success('Đã hủy sự kiện và gửi email thông báo')
+        fetchEvents()
+    } catch (error) {
+        message.error('Lỗi: ' + error.message)
+    }
+}
+
+const handleRestore = async (id) => {
+    try {
+        await eventAPI.restore(id)
+        message.success('Khôi phục sự kiện thành công')
         fetchEvents()
     } catch (error) {
         message.error('Lỗi: ' + error.message)
@@ -979,6 +1023,12 @@ onMounted(async () => {
                 </NTag>
             </div>
         </template>
+
+        <NTabs type="line" v-model:value="activeTab" class="mb-4">
+            <NTabPane name="active" tab="Đang hoạt động" />
+            <NTabPane name="cancelled" tab="Đã hủy" />
+        </NTabs>
+
         <NSpin :show="loading">
             <NDataTable
                 :columns="columns"
@@ -1313,7 +1363,6 @@ onMounted(async () => {
             
             <div v-if="attendancePassword" class="mb-4 p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded border border-yellow-200 dark:border-yellow-800">
                 <div class="flex items-center gap-2">
-                    <i class="fa-solid fa-key text-yellow-600"></i>
                     <span class="font-bold text-yellow-800 dark:text-yellow-200">Mật khẩu điểm danh:</span>
                     <span class="font-mono text-lg bg-white dark:bg-black px-2 py-0.5 rounded border">{{ attendancePassword }}</span>
                 </div>

@@ -166,7 +166,7 @@
                                 </div>
                                 
                                 <!-- Hot/New Badge based on logic -->
-                                <div class="absolute top-2 right-2" v-if="isEventUpcoming(event.eventDate)">
+                                <div class="absolute top-2 right-2" v-if="checkEventUpcoming(event)">
                                     <n-tag type="error" size="small" round class="shadow-sm font-bold">
                                         HOT
                                     </n-tag>
@@ -207,13 +207,13 @@
                                                 <span>Đã đăng ký</span>
                                             </n-text>
                                         </template>
-                                        <template v-else-if="isEventOpen(event.eventDate, event.eventDate)">
+                                        <template v-else-if="checkEventOpen(event)">
                                             <n-text type="info" class="flex items-center gap-2 font-medium">
                                                 <i class="fa-solid fa-circle-plus"></i>
                                                 <span>Đăng ký ngay</span>
                                             </n-text>
                                         </template>
-                                        <template v-else-if="isEventUpcoming(event.eventDate)">
+                                        <template v-else-if="checkEventUpcoming(event)">
                                             <n-text type="warning" class="flex items-center gap-2 font-medium">
                                                 <i class="fa-solid fa-clock"></i>
                                                 <span>Sắp diễn ra</span>
@@ -414,7 +414,7 @@ import {
     NH2, NH4, NText, NIcon, NDivider, useMessage, NModal, NProgress, NButton 
 } from 'naive-ui';
 import { eventAPI } from '../services/api';
-import { formatDate, isEventOpen, isEventUpcoming, isEventEnded } from '../utils/dateFormat';
+import { formatDate, isEventOpen, isEventUpcoming, isEventEnded, combineDateAndTime } from '../utils/dateFormat';
 
 const router = useRouter();
 const message = useMessage();
@@ -450,8 +450,8 @@ const recommendedEvents = computed(() => {
     
     // 1. Filter upcoming events only
     let candidates = events.value.filter(e => {
-        const startDate = new Date(e.eventDate);
-        return startDate > now && !isRegistered(e._id);
+        const { start } = getEventDates(e);
+        return start > now && !isRegistered(e._id);
     });
 
     // 2. Calculate Score for each event
@@ -510,22 +510,21 @@ const filteredEvents = computed(() => {
 
     // Filter: Ongoing OR Starts within next 3 days
     result = result.filter(e => {
-        const startDate = new Date(e.eventDate);
-        const endDate = e.endDate ? new Date(e.endDate) : new Date(startDate);
+        const { start, end } = getEventDates(e);
         
         // Case 1: Ongoing (Start <= Now <= End)
-        const isOngoing = startDate <= now && endDate >= now;
+        const isOngoing = start <= now && end >= now;
         
         // Case 2: Upcoming within 3 days (Now < Start <= 3 Days Later)
-        const isUpcomingSoon = startDate > now && startDate <= threeDaysLater;
+        const isUpcomingSoon = start > now && start <= threeDaysLater;
         
         return isOngoing || isUpcomingSoon;
     });
 
     // Sort: Nearest Date ASC, then Score DESC
     result.sort((a, b) => {
-        const dateA = new Date(a.eventDate);
-        const dateB = new Date(b.eventDate);
+        const { start: dateA } = getEventDates(a);
+        const { start: dateB } = getEventDates(b);
         
         // If dates are different, sort by date (nearest first)
         if (dateA.getTime() !== dateB.getTime()) {
@@ -549,15 +548,46 @@ const getScopeLabel = (scope) => {
     return labels[scope] || scope;
 };
 
+const getEventDates = (event) => {
+    const start = combineDateAndTime(event.eventDate, event.startTime);
+    let end = combineDateAndTime(event.endDate || event.eventDate, event.endTime);
+    
+    // If no end time/date, default to end of start day
+    if (!event.endTime && !event.endDate) {
+        end = new Date(start);
+        end.setHours(23, 59, 59, 999);
+    } else if (!event.endTime && event.endDate) {
+         // If end date but no end time, default to end of end day
+         end.setHours(23, 59, 59, 999);
+    }
+    
+    return { start, end };
+};
+
+const checkEventOpen = (event) => {
+    const { start, end } = getEventDates(event);
+    return isEventOpen(start, end);
+};
+
+const checkEventUpcoming = (event) => {
+    const { start } = getEventDates(event);
+    return isEventUpcoming(start);
+};
+
+const checkEventEnded = (event) => {
+    const { end } = getEventDates(event);
+    return isEventEnded(end);
+};
+
 const getEventStatus = (event) => {
-    if (isEventOpen(event.eventDate, event.eventDate)) return 'Đang diễn ra';
-    if (isEventUpcoming(event.eventDate)) return 'Sắp diễn ra';
+    if (checkEventOpen(event)) return 'Đang diễn ra';
+    if (checkEventUpcoming(event)) return 'Sắp diễn ra';
     return 'Đã kết thúc';
 };
 
 const getStatusTagType = (event) => {
-    if (isEventOpen(event.eventDate, event.eventDate)) return 'success';
-    if (isEventUpcoming(event.eventDate)) return 'warning';
+    if (checkEventOpen(event)) return 'success';
+    if (checkEventUpcoming(event)) return 'warning';
     return 'default';
 };
 
@@ -629,7 +659,7 @@ const isRegistered = (eventId) => registeredEventIds.value.includes(eventId);
 const canRegister = (event) => {
     if (!event) return false;
     if (isRegistered(event._id)) return false;
-    if (isEventEnded(event.eventDate)) return false;
+    if (checkEventEnded(event)) return false;
     
     // Check scope eligibility
     if (event.scope === 'faculty') {

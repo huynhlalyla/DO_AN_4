@@ -227,7 +227,7 @@
 import { ref, onMounted } from 'vue';
 import { NCard, NGrid, NGi, NTag, NSpin, NEmpty, NH4, NModal, NProgress, NButton, NPopconfirm, useMessage } from 'naive-ui';
 import { eventAPI } from '../services/api';
-import { formatDate, isEventEnded, isEventUpcoming, isEventOpen } from '../utils/dateFormat';
+import { formatDate, isEventEnded, isEventUpcoming, isEventOpen, combineDateAndTime } from '../utils/dateFormat';
 
 const message = useMessage();
 const loading = ref(false);
@@ -269,6 +269,37 @@ const getInitials = (lastName, firstName) => {
     return `${last}${first}`.toUpperCase();
 };
 
+const getEventDates = (event) => {
+    const start = combineDateAndTime(event.eventDate, event.startTime);
+    let end = combineDateAndTime(event.endDate || event.eventDate, event.endTime);
+    
+    // If no end time/date, default to end of start day
+    if (!event.endTime && !event.endDate) {
+        end = new Date(start);
+        end.setHours(23, 59, 59, 999);
+    } else if (!event.endTime && event.endDate) {
+         // If end date but no end time, default to end of end day
+         end.setHours(23, 59, 59, 999);
+    }
+    
+    return { start, end };
+};
+
+const checkEventOpen = (event) => {
+    const { start, end } = getEventDates(event);
+    return isEventOpen(start, end);
+};
+
+const checkEventUpcoming = (event) => {
+    const { start } = getEventDates(event);
+    return isEventUpcoming(start);
+};
+
+const checkEventEnded = (event) => {
+    const { end } = getEventDates(event);
+    return isEventEnded(end);
+};
+
 const getScopeLabel = (scope) => {
     const map = { university: 'Trường', faculty: 'Khoa', class: 'Lớp' };
     return map[scope] || scope;
@@ -280,14 +311,14 @@ const getScopeTagType = (scope) => {
 };
 
 const getEventStatus = (event) => {
-    if (isEventEnded(event.eventDate)) return 'Đã kết thúc';
-    if (isEventUpcoming(event.eventDate)) return 'Sắp diễn ra';
+    if (checkEventEnded(event)) return 'Đã kết thúc';
+    if (checkEventUpcoming(event)) return 'Sắp diễn ra';
     return 'Đang diễn ra';
 };
 
 const getStatusTagType = (event) => {
-    if (isEventEnded(event.eventDate)) return 'default';
-    if (isEventUpcoming(event.eventDate)) return 'warning';
+    if (checkEventEnded(event)) return 'default';
+    if (checkEventUpcoming(event)) return 'warning';
     return 'success';
 };
 
@@ -330,7 +361,7 @@ const getParticipationStatusType = (status) => {
 
 const canCancel = (event) => {
     // Chỉ cho phép hủy nếu sự kiện chưa diễn ra
-    return isEventUpcoming(event.eventDate);
+    return checkEventUpcoming(event);
 };
 
 const handleCancelRegistration = async (eventId) => {

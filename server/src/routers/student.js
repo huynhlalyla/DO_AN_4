@@ -9,7 +9,10 @@ import {
     finalizeStudentAssessment,
     getFacultyClassesStatus,
     approveClassAssessment,
-    remindClassSecretary
+    remindClassSecretary,
+    getSchoolAssessmentStatus,
+    finalizeFacultyAssessment,
+    remindFacultySecretary
 } from '../controllers/assessmentController.js';
 import { verifyToken } from '../middlewares/auth.js'; // Assuming auth middleware
 
@@ -29,6 +32,11 @@ studentRouter.post('/assessment/secretary/finalize', verifyToken, finalizeStuden
 studentRouter.get('/assessment/faculty/:facultyId/classes', verifyToken, getFacultyClassesStatus);
 studentRouter.post('/assessment/faculty/approve-class', verifyToken, approveClassAssessment);
 studentRouter.post('/assessment/faculty/remind', verifyToken, remindClassSecretary);
+
+// School Secretary Routes
+studentRouter.get('/assessment/school/faculties', verifyToken, getSchoolAssessmentStatus);
+studentRouter.post('/assessment/school/finalize-faculty', verifyToken, finalizeFacultyAssessment);
+studentRouter.post('/assessment/school/remind-faculty', verifyToken, remindFacultySecretary);
 
 // Routes
 studentRouter.get('/', studentController.getAllStudents);
